@@ -25,11 +25,14 @@ export interface ITeamMember extends Document {
   activeTasks: number;
   completedTasks: number;
   projects: number;
-  status: "active" | "inactive" | "invited";
-  organizationId: string; // active organization (backward compat)
-  organizations: IOrgMembership[]; // all org memberships
+  status: "active" | "inactive" | "invited" | "pending_access" | "suspended";
+  organizationId: string;
+  organizations: IOrgMembership[];
   passwordHash: string;
-  activeSessionId: string; // the one valid session ID for this user
+  activeSessionId: string;
+  canAccessCRM: boolean;
+  canCreateOrganization: boolean;
+  canJoinOrganization: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -73,8 +76,10 @@ const TeamMemberSchema = new Schema<ITeamMember>(
     // All organization memberships
     organizations: { type: [OrgMembershipSchema], default: [] },
     passwordHash: { type: String, default: "" },
-    // Single active device: the one valid session ID for this user
     activeSessionId: { type: String, default: "" },
+    canAccessCRM: { type: Boolean, default: false },
+    canCreateOrganization: { type: Boolean, default: false },
+    canJoinOrganization: { type: Boolean, default: true },
   },
   { timestamps: true }
 );

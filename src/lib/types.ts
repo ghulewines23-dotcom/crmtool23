@@ -37,7 +37,10 @@ export interface User {
   phone?: string;
   organizationId: string;
   organizations: OrgMembership[];
-  status: "active" | "inactive" | "invited";
+  status: "active" | "inactive" | "invited" | "pending_access" | "suspended";
+  canAccessCRM: boolean;
+  canCreateOrganization: boolean;
+  canJoinOrganization: boolean;
 }
 
 export interface OrgMembership {
