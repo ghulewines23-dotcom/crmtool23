@@ -152,7 +152,7 @@ export async function POST(request: NextRequest) {
       actorId: auth.user.id,
       actorEmail: (user as { email: string }).email,
       organizationId: targetOrgId,
-      action: "ORGANIZATION_SWITCHED",
+      action: AUDIT_ACTIONS.ORGANIZATION_SWITCHED,
       targetType: "Organization",
       targetId: targetOrgId,
       metadata: {
