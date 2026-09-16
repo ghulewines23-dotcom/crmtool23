@@ -38,9 +38,9 @@ const navSections: NavSection[] = [
   {
     title: "Main",
     items: [
-      { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, roles: ADMIN_ROLES },
+      { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, roles: ALL_ROLES },
       { label: "Leads", href: "/leads", icon: Users, roles: ALL_ROLES },
-      { label: "Tasks", href: "/tasks", icon: ClipboardList, roles: ADMIN_ROLES },
+      { label: "Tasks", href: "/tasks", icon: ClipboardList, roles: ALL_ROLES },
     ],
   },
   {

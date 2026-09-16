@@ -3,21 +3,25 @@
 import { useState, useMemo } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { useCRMData } from "@/lib/crm-data-context";
-import { StatusBadge } from "@/components/shared/status-badge";
 import { cn } from "@/lib/utils";
-import Link from "next/link";
 import {
-  Users,
-  Clock,
-  AlertTriangle,
-  Flame,
-  Trophy,
-  Percent,
-  CheckCircle2,
-  ExternalLink,
   TrendingUp,
-  Phone,
-  Mail,
+  Users,
+  Award,
+  PhoneCall,
+  CheckCircle2,
+  Flame,
+  IndianRupee,
+  ChevronDown,
+  Target,
+  BarChart3,
+  PieChart,
+  User,
+  ShieldCheck,
+  Crown,
+  Briefcase,
+  ArrowUpRight,
+  Clock,
 } from "lucide-react";
 
 function getGreeting(): string {
@@ -27,315 +31,528 @@ function getGreeting(): string {
   return "Good evening";
 }
 
+function formatCurrency(amount: number): string {
+  if (amount >= 100000) return `₹${(amount / 100000).toFixed(1)}L`;
+  if (amount >= 1000) return `₹${(amount / 1000).toFixed(0)}K`;
+  return `₹${amount}`;
+}
+
 export default function SalesDashboard() {
   const { user } = useAuth();
-  const { leads, followUps, teamMembers } = useCRMData();
-  const [completedReminders, setCompletedReminders] = useState<string[]>([]);
+  const { leads, teamMembers, tasks } = useCRMData();
 
-  const isSales = user?.role === "SALES_PERSON";
+  const isOwnerOrAdmin =
+    user?.role === "SERENE_OWNER" ||
+    user?.role === "FOUNDER" ||
+    user?.role === "ADMIN";
 
-  // For sales agents: only their leads. For others: all leads.
-  const visibleLeads = isSales
-    ? leads.filter((l) => l.assignedTo === user?.id || !l.assignedTo)
-    : leads;
+  // Filter selection: "all" or specific team member ID
+  const [selectedAgentId, setSelectedAgentId] = useState<string>("all");
+  const [dropdownOpen, setDropdownOpen] = useState(false);
 
-  const myFollowUps = isSales
-    ? followUps.filter((f) => f.assignedTo === user?.id)
-    : followUps;
+  // Available sales persons list
+  const salesAgents = useMemo(() => {
+    return teamMembers.filter(
+      (m) => m.role === "SALES_PERSON" || m.role === "ADMIN" || m.role === "FOUNDER" || m.role === "SERENE_OWNER"
+    );
+  }, [teamMembers]);
 
-  // KPIs
-  const totalLeads = visibleLeads.length;
-  const todayFollowUps = myFollowUps.filter((f) => f.type === "today");
-  const overdueFollowUps = myFollowUps.filter((f) => f.type === "overdue");
-  const hotLeads = visibleLeads.filter((l) => l.status === "hot_lead").length;
-  const newLeads = visibleLeads.filter((l) => l.status === "new").length;
-  const wonLeads = visibleLeads.filter((l) => l.status === "won").length;
-  const lostLeads = visibleLeads.filter((l) => l.status === "lost").length;
-  const processingLeads = visibleLeads.filter((l) => l.status === "processing").length;
-  const conversion = totalLeads > 0 ? ((wonLeads / totalLeads) * 100).toFixed(1) : "0";
-  const totalRevenue = visibleLeads.filter((l) => l.status === "won").reduce((sum, l) => sum + l.value, 0);
+  // Effective agent ID for current view
+  const currentAgentId = isOwnerOrAdmin
+    ? selectedAgentId
+    : user?.id || "all";
 
-  // Pipeline
-  const pipelineStages = [
-    { name: "New", count: newLeads, color: "text-blue-600", bg: "bg-blue-50" },
-    { name: "Processing", count: processingLeads, color: "text-amber-600", bg: "bg-amber-50" },
-    { name: "Hot", count: hotLeads, color: "text-orange-600", bg: "bg-orange-50" },
-    { name: "Won", count: wonLeads, color: "text-emerald-600", bg: "bg-emerald-50" },
-    { name: "Lost", count: lostLeads, color: "text-red-600", bg: "bg-red-50" },
-  ];
+  // Filter leads based on selected agent
+  const filteredLeads = useMemo(() => {
+    if (currentAgentId === "all") return leads;
+    return leads.filter((l) => l.assignedTo === currentAgentId);
+  }, [leads, currentAgentId]);
 
-  // Recent leads (sorted by lastActivity)
-  const recentLeads = useMemo(() =>
-    [...visibleLeads]
-      .sort((a, b) => new Date(b.lastActivity).getTime() - new Date(a.lastActivity).getTime())
-      .slice(0, 8),
-    [visibleLeads]
-  );
+  // Filter tasks based on selected agent
+  const filteredTasks = useMemo(() => {
+    if (currentAgentId === "all") return tasks;
+    return tasks.filter((t) => t.createdBy === currentAgentId || t.assignedTo === currentAgentId);
+  }, [tasks, currentAgentId]);
 
-  // Hot leads list
-  const hotLeadsList = useMemo(() =>
-    visibleLeads.filter((l) => l.status === "hot_lead").slice(0, 5),
-    [visibleLeads]
-  );
+  // Performance Metrics
+  const metrics = useMemo(() => {
+    const totalAssigned = filteredLeads.length;
+    const notConnected = filteredLeads.filter((l) => l.status === "not_connected").length;
+    const followUps = filteredLeads.filter((l) => l.status === "follow_up").length;
+    const hotLeads = filteredLeads.filter((l) => l.status === "hot_lead").length;
+    const wonLeads = filteredLeads.filter((l) => l.status === "won");
+    const lostLeads = filteredLeads.filter((l) => l.status === "lost").length;
 
-  // Upcoming follow-ups
-  const upcomingFollowUps = useMemo(() =>
-    myFollowUps
-      .filter((f) => f.type === "tomorrow" || f.type === "upcoming")
-      .slice(0, 5),
-    [myFollowUps]
-  );
+    const wonCount = wonLeads.length;
+    const totalValue = wonLeads.reduce((sum, l) => sum + (l.value || 0), 0);
+    const conversionRate =
+      totalAssigned > 0 ? ((wonCount / totalAssigned) * 100).toFixed(1) : "0";
 
-  function markDone(id: string) {
-    setCompletedReminders((prev) => [...prev, id]);
-  }
+    const completedTasksCount = filteredTasks.filter((t) => t.status === "completed").length;
+
+    return {
+      totalAssigned,
+      notConnected,
+      followUps,
+      hotLeads,
+      wonCount,
+      lostLeads,
+      totalValue,
+      conversionRate,
+      completedTasksCount,
+    };
+  }, [filteredLeads, filteredTasks]);
+
+  // Sales Leaderboard data (comparing each agent)
+  const leaderboard = useMemo(() => {
+    return salesAgents
+      .map((agent) => {
+        const agentLeads = leads.filter((l) => l.assignedTo === agent.id);
+        const won = agentLeads.filter((l) => l.status === "won");
+        const wonCount = won.length;
+        const revenue = won.reduce((sum, l) => sum + (l.value || 0), 0);
+        const rate =
+          agentLeads.length > 0
+            ? Number(((wonCount / agentLeads.length) * 100).toFixed(1))
+            : 0;
+
+        const agentTasks = tasks.filter(
+          (t) => t.createdBy === agent.id && t.status === "completed"
+        ).length;
+
+        return {
+          id: agent.id,
+          name: agent.name,
+          email: agent.email,
+          role: agent.role,
+          totalLeads: agentLeads.length,
+          wonCount,
+          revenue,
+          conversionRate: rate,
+          completedTasks: agentTasks,
+        };
+      })
+      .sort((a, b) => b.wonCount - a.wonCount || b.revenue - a.revenue);
+  }, [salesAgents, leads, tasks]);
+
+  const selectedAgentObj = salesAgents.find((a) => a.id === selectedAgentId);
 
   return (
-    <div className="space-y-5">
-      {/* Header */}
-      <div className="flex items-start justify-between">
+    <div className="space-y-6 max-w-7xl mx-auto p-4 sm:p-6">
+      {/* Header Banner */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-5">
         <div>
-          <h1 className="font-display text-[28px] font-semibold tracking-tight">
-            {getGreeting()}, {user?.name?.split(" ")[0] || "there"}
-          </h1>
-          <p className="mt-1 text-[13px] text-muted-foreground">
-            {isSales ? "Here&apos;s what you need to work on today." : "Here&apos;s how your business is performing."}
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">
+              {getGreeting()}, {user?.name} 👋
+            </h1>
+            <span
+              className={cn(
+                "text-xs font-semibold px-2.5 py-0.5 rounded-full flex items-center gap-1",
+                user?.role === "SERENE_OWNER" || user?.role === "FOUNDER"
+                  ? "bg-amber-100 text-amber-800 border border-amber-200"
+                  : user?.role === "ADMIN"
+                  ? "bg-blue-100 text-blue-800 border border-blue-200"
+                  : "bg-emerald-100 text-emerald-800 border border-emerald-200"
+              )}
+            >
+              {(user?.role === "SERENE_OWNER" || user?.role === "FOUNDER") && <Crown className="h-3 w-3" />}
+              {user?.role === "ADMIN" && <ShieldCheck className="h-3 w-3" />}
+              {user?.role === "SALES_PERSON" && <Briefcase className="h-3 w-3" />}
+              {user?.role === "SERENE_OWNER"
+                ? "Owner"
+                : user?.role === "FOUNDER"
+                ? "Founder"
+                : user?.role === "ADMIN"
+                ? "Admin"
+                : "Sales Person"}
+            </span>
+          </div>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+            Real-time Sales Performance, Lead Conversions & Team Analytics.
           </p>
         </div>
-        <p className="text-[12px] text-muted-foreground mt-2 hidden sm:block">
-          {new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
-        </p>
-      </div>
 
-      {/* KPI Cards */}
-      <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
-        <KpiCard icon={<Users className="h-4 w-4" />} title="Total Leads" value={totalLeads} />
-        <KpiCard icon={<Flame className="h-4 w-4" />} title="Hot Leads" value={hotLeads} alert={hotLeads > 0} />
-        <KpiCard icon={<TrendingUp className="h-4 w-4" />} title="New Leads" value={newLeads} />
-        <KpiCard icon={<Clock className="h-4 w-4" />} title="Follow-ups Today" value={todayFollowUps.length} />
-        <KpiCard
-          icon={<AlertTriangle className="h-4 w-4" />}
-          title="Overdue"
-          value={overdueFollowUps.length}
-          alert={overdueFollowUps.length > 0}
-        />
-        <KpiCard icon={<Trophy className="h-4 w-4" />} title="Won" value={wonLeads} />
-      </div>
-
-      {/* Second row KPIs */}
-      <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
-        <KpiCard icon={<Percent className="h-4 w-4" />} title="Conversion" value={`${conversion}%`} />
-        <KpiCard icon={<TrendingUp className="h-4 w-4" />} title="Revenue" value={`₹${(totalRevenue / 1000).toFixed(0)}K`} />
-        <KpiCard icon={<CheckCircle2 className="h-4 w-4" />} title="Processing" value={processingLeads} />
-        <KpiCard icon={<AlertTriangle className="h-4 w-4" />} title="Lost" value={lostLeads} alert={lostLeads > 0} />
-      </div>
-
-      {/* Lead Pipeline */}
-      <div className="rounded-xl border border-[#E7E7E5] bg-white p-5">
-        <h2 className="text-[14px] font-semibold text-foreground mb-4">Lead Pipeline</h2>
-        <div className="grid grid-cols-5 gap-3">
-          {pipelineStages.map((stage) => (
-            <Link
-              key={stage.name}
-              href={`/leads?status=${stage.name.toLowerCase().replace("-", "_")}`}
-              className={cn("text-center rounded-lg border border-[#E7E7E5] p-3 hover:bg-[#F8F8F6] transition-colors")}
+        {/* Filter Selection Dropdown */}
+        {isOwnerOrAdmin && (
+          <div className="relative">
+            <button
+              onClick={() => setDropdownOpen(!dropdownOpen)}
+              className="flex items-center gap-2 px-3.5 py-2 rounded-lg border border-border bg-card text-xs sm:text-sm font-medium hover:bg-muted/50 transition-colors shadow-sm"
             >
-              <p className={cn("text-[22px] font-semibold", stage.color)}>{stage.count}</p>
-              <p className="text-[11px] text-muted-foreground mt-0.5">{stage.name}</p>
-            </Link>
-          ))}
-        </div>
-      </div>
+              <User className="h-4 w-4 text-muted-foreground" />
+              <span>
+                {selectedAgentId === "all"
+                  ? "All Sales Team"
+                  : selectedAgentObj?.name || "Select Agent"}
+              </span>
+              <ChevronDown className="h-4 w-4 text-muted-foreground ml-1" />
+            </button>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        {/* Today's Follow-ups */}
-        {todayFollowUps.length > 0 && (
-          <div className="rounded-xl border border-[#E7E7E5] bg-white">
-            <div className="flex items-center justify-between px-5 py-3.5 border-b border-[#E7E7E5]">
-              <h2 className="text-[14px] font-semibold text-foreground">Today&apos;s Follow-ups</h2>
-            </div>
-            <div className="divide-y divide-[#E7E7E5]">
-              {todayFollowUps.map((fu) => (
-                <div key={fu.id} className="flex items-center gap-3 px-5 py-3">
-                  <CheckCircle2
-                    className={cn(
-                      "h-4 w-4 shrink-0 cursor-pointer transition-colors",
-                      completedReminders.includes(fu.id)
-                        ? "text-emerald-500"
-                        : "text-muted-foreground hover:text-emerald-500"
-                    )}
-                    onClick={() => markDone(fu.id)}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[13px] font-medium truncate">{fu.leadName}</p>
-                    <p className="text-[11px] text-muted-foreground truncate">{fu.lastConversation}</p>
-                  </div>
-                  <span className="text-[11px] text-muted-foreground shrink-0">{fu.time}</span>
-                  <Link href={`/leads/${fu.leadId}`}>
-                    <ExternalLink className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
-                  </Link>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Hot Leads */}
-        {hotLeadsList.length > 0 && (
-          <div className="rounded-xl border border-orange-200 bg-orange-50/30">
-            <div className="flex items-center gap-2 px-5 py-3.5 border-b border-orange-200">
-              <Flame className="h-4 w-4 text-orange-500" />
-              <h2 className="text-[14px] font-semibold text-orange-700">Hot Leads</h2>
-            </div>
-            <div className="divide-y divide-orange-200">
-              {hotLeadsList.map((lead) => (
-                <div key={lead.id} className="flex items-center gap-3 px-5 py-3">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[13px] font-medium truncate">{lead.requirement}</p>
-                    <p className="text-[11px] text-muted-foreground truncate">{lead.company}</p>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {lead.phone && <Phone className="h-3 w-3 text-muted-foreground" />}
-                    {lead.email && <Mail className="h-3 w-3 text-muted-foreground" />}
-                  </div>
-                  <Link href={`/leads/${lead.id}`}>
-                    <ExternalLink className="h-3.5 w-3.5 text-orange-500 hover:text-orange-700" />
-                  </Link>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Overdue */}
-        {overdueFollowUps.length > 0 && (
-          <div className="rounded-xl border border-red-200 bg-red-50/50">
-            <div className="flex items-center gap-2 px-5 py-3.5 border-b border-red-200">
-              <AlertTriangle className="h-4 w-4 text-red-500" />
-              <h2 className="text-[14px] font-semibold text-red-700">Overdue</h2>
-            </div>
-            <div className="divide-y divide-red-200">
-              {overdueFollowUps.map((fu) => (
-                <div key={fu.id} className="flex items-center gap-3 px-5 py-3">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[13px] font-medium text-red-700 truncate">{fu.leadName}</p>
-                    <p className="text-[11px] text-red-500 truncate">{fu.service}</p>
-                  </div>
-                  <Link href={`/leads/${fu.leadId}`}>
-                    <ExternalLink className="h-3.5 w-3.5 text-red-500 hover:text-red-700" />
-                  </Link>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Upcoming Follow-ups */}
-        {upcomingFollowUps.length > 0 && (
-          <div className="rounded-xl border border-[#E7E7E5] bg-white">
-            <div className="flex items-center justify-between px-5 py-3.5 border-b border-[#E7E7E5]">
-              <h2 className="text-[14px] font-semibold text-foreground">Upcoming Follow-ups</h2>
-            </div>
-            <div className="divide-y divide-[#E7E7E5]">
-              {upcomingFollowUps.map((fu) => (
-                <div key={fu.id} className="flex items-center gap-3 px-5 py-3">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[13px] font-medium truncate">{fu.leadName}</p>
-                    <p className="text-[11px] text-muted-foreground truncate">{fu.lastConversation}</p>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <p className="text-[11px] text-muted-foreground">{fu.date}</p>
-                    <p className="text-[11px] text-muted-foreground">{fu.time}</p>
-                  </div>
-                  <Link href={`/leads/${fu.leadId}`}>
-                    <ExternalLink className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
-                  </Link>
-                </div>
-              ))}
-            </div>
+            {dropdownOpen && (
+              <div className="absolute right-0 mt-2 w-56 rounded-xl border border-border bg-popover p-1.5 shadow-xl z-30 space-y-1">
+                <button
+                  onClick={() => {
+                    setSelectedAgentId("all");
+                    setDropdownOpen(false);
+                  }}
+                  className={cn(
+                    "w-full text-left px-3 py-2 text-xs rounded-lg transition-colors flex items-center justify-between",
+                    selectedAgentId === "all"
+                      ? "bg-primary text-primary-foreground font-medium"
+                      : "hover:bg-muted text-foreground"
+                  )}
+                >
+                  <span>All Sales Team</span>
+                  <span className="text-[10px] opacity-80">{leads.length} leads</span>
+                </button>
+                <div className="h-px bg-border my-1" />
+                {salesAgents.map((agent) => {
+                  const agentLeadCount = leads.filter((l) => l.assignedTo === agent.id).length;
+                  return (
+                    <button
+                      key={agent.id}
+                      onClick={() => {
+                        setSelectedAgentId(agent.id);
+                        setDropdownOpen(false);
+                      }}
+                      className={cn(
+                        "w-full text-left px-3 py-2 text-xs rounded-lg transition-colors flex items-center justify-between",
+                        selectedAgentId === agent.id
+                          ? "bg-primary text-primary-foreground font-medium"
+                          : "hover:bg-muted text-foreground"
+                      )}
+                    >
+                      <span className="truncate">{agent.name}</span>
+                      <span className="text-[10px] opacity-80">{agentLeadCount} leads</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
       </div>
 
-      {/* Recent Leads Table */}
-      <div className="rounded-xl border border-[#E7E7E5] bg-white">
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-[#E7E7E5]">
-          <h2 className="text-[14px] font-semibold text-foreground">Recent Leads</h2>
-          <Link href="/leads" className="text-[11px] text-primary hover:underline">
-            View all
-          </Link>
+      {/* Metric Cards Grid */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        {/* Total Assigned Leads */}
+        <div className="rounded-xl border border-border bg-card p-4 shadow-sm hover:shadow-md transition-all">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-muted-foreground">Assigned Leads</span>
+            <div className="p-2 rounded-lg bg-blue-50 text-blue-600">
+              <Users className="h-4 w-4" />
+            </div>
+          </div>
+          <p className="text-2xl font-bold mt-2">{metrics.totalAssigned}</p>
+          <p className="text-[11px] text-muted-foreground mt-1 flex items-center gap-1">
+            <span className="text-blue-600 font-medium">{metrics.notConnected} not connected</span>
+          </p>
         </div>
+
+        {/* Won Deals */}
+        <div className="rounded-xl border border-border bg-card p-4 shadow-sm hover:shadow-md transition-all">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-muted-foreground">Deals Won</span>
+            <div className="p-2 rounded-lg bg-emerald-50 text-emerald-600">
+              <Award className="h-4 w-4" />
+            </div>
+          </div>
+          <p className="text-2xl font-bold mt-2 text-emerald-600">{metrics.wonCount}</p>
+          <p className="text-[11px] text-muted-foreground mt-1 flex items-center gap-1">
+            <TrendingUp className="h-3 w-3 text-emerald-600" />
+            <span className="text-emerald-600 font-semibold">{formatCurrency(metrics.totalValue)}</span> revenue
+          </p>
+        </div>
+
+        {/* Conversion Rate */}
+        <div className="rounded-xl border border-border bg-card p-4 shadow-sm hover:shadow-md transition-all">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-muted-foreground">Conversion Rate</span>
+            <div className="p-2 rounded-lg bg-indigo-50 text-indigo-600">
+              <Target className="h-4 w-4" />
+            </div>
+          </div>
+          <p className="text-2xl font-bold mt-2">{metrics.conversionRate}%</p>
+          <div className="w-full bg-muted rounded-full h-1.5 mt-2 overflow-hidden">
+            <div
+              className="bg-indigo-600 h-1.5 rounded-full transition-all duration-500"
+              style={{ width: `${Math.min(Number(metrics.conversionRate), 100)}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Hot & Follow-ups */}
+        <div className="rounded-xl border border-border bg-card p-4 shadow-sm hover:shadow-md transition-all">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-muted-foreground">Active Hot Pipeline</span>
+            <div className="p-2 rounded-lg bg-amber-50 text-amber-600">
+              <Flame className="h-4 w-4" />
+            </div>
+          </div>
+          <p className="text-2xl font-bold mt-2 text-amber-600">{metrics.hotLeads}</p>
+          <p className="text-[11px] text-muted-foreground mt-1">
+            <span className="font-semibold text-foreground">{metrics.followUps}</span> follow-ups pending
+          </p>
+        </div>
+      </div>
+
+      {/* Visual Analytics Grid */}
+      <div className="grid gap-6 md:grid-cols-2">
+        {/* Sales Funnel Breakdown */}
+        <div className="rounded-xl border border-border bg-card p-5 shadow-sm space-y-4">
+          <div className="flex items-center justify-between border-b border-border pb-3">
+            <div className="flex items-center gap-2">
+              <BarChart3 className="h-4 w-4 text-primary" />
+              <h2 className="text-sm font-semibold text-foreground">Sales Lead Funnel</h2>
+            </div>
+            <span className="text-xs text-muted-foreground font-mono">
+              {metrics.totalAssigned} Total Leads
+            </span>
+          </div>
+
+          <div className="space-y-3">
+            {/* Not Connected */}
+            <div>
+              <div className="flex justify-between text-xs mb-1 font-medium">
+                <span className="text-muted-foreground">Not Connected</span>
+                <span>{metrics.notConnected} ({metrics.totalAssigned > 0 ? Math.round((metrics.notConnected / metrics.totalAssigned) * 100) : 0}%)</span>
+              </div>
+              <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+                <div
+                  className="bg-zinc-400 h-2 rounded-full transition-all"
+                  style={{ width: `${metrics.totalAssigned > 0 ? (metrics.notConnected / metrics.totalAssigned) * 100 : 0}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Follow up */}
+            <div>
+              <div className="flex justify-between text-xs mb-1 font-medium">
+                <span className="text-blue-600">Follow-up</span>
+                <span className="text-blue-600">{metrics.followUps} ({metrics.totalAssigned > 0 ? Math.round((metrics.followUps / metrics.totalAssigned) * 100) : 0}%)</span>
+              </div>
+              <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+                <div
+                  className="bg-blue-500 h-2 rounded-full transition-all"
+                  style={{ width: `${metrics.totalAssigned > 0 ? (metrics.followUps / metrics.totalAssigned) * 100 : 0}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Hot Lead */}
+            <div>
+              <div className="flex justify-between text-xs mb-1 font-medium">
+                <span className="text-amber-600">Hot Leads</span>
+                <span className="text-amber-600">{metrics.hotLeads} ({metrics.totalAssigned > 0 ? Math.round((metrics.hotLeads / metrics.totalAssigned) * 100) : 0}%)</span>
+              </div>
+              <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+                <div
+                  className="bg-amber-500 h-2 rounded-full transition-all"
+                  style={{ width: `${metrics.totalAssigned > 0 ? (metrics.hotLeads / metrics.totalAssigned) * 100 : 0}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Won */}
+            <div>
+              <div className="flex justify-between text-xs mb-1 font-medium">
+                <span className="text-emerald-600 font-semibold">Won Deals</span>
+                <span className="text-emerald-600 font-semibold">{metrics.wonCount} ({metrics.totalAssigned > 0 ? Math.round((metrics.wonCount / metrics.totalAssigned) * 100) : 0}%)</span>
+              </div>
+              <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+                <div
+                  className="bg-emerald-500 h-2 rounded-full transition-all"
+                  style={{ width: `${metrics.totalAssigned > 0 ? (metrics.wonCount / metrics.totalAssigned) * 100 : 0}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Lost */}
+            <div>
+              <div className="flex justify-between text-xs mb-1 font-medium">
+                <span className="text-red-500">Lost Leads</span>
+                <span className="text-red-500">{metrics.lostLeads} ({metrics.totalAssigned > 0 ? Math.round((metrics.lostLeads / metrics.totalAssigned) * 100) : 0}%)</span>
+              </div>
+              <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+                <div
+                  className="bg-red-400 h-2 rounded-full transition-all"
+                  style={{ width: `${metrics.totalAssigned > 0 ? (metrics.lostLeads / metrics.totalAssigned) * 100 : 0}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Monthly Target Progress */}
+        <div className="rounded-xl border border-border bg-card p-5 shadow-sm space-y-4 flex flex-col justify-between">
+          <div className="flex items-center justify-between border-b border-border pb-3">
+            <div className="flex items-center gap-2">
+              <Target className="h-4 w-4 text-emerald-600" />
+              <h2 className="text-sm font-semibold text-foreground">Monthly Sales Goal</h2>
+            </div>
+            <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2.5 py-0.5 rounded-full">
+              Active Goal
+            </span>
+          </div>
+
+          <div className="space-y-4 py-2">
+            <div className="flex items-baseline justify-between">
+              <div>
+                <p className="text-xs text-muted-foreground">Revenue Generated</p>
+                <p className="text-3xl font-extrabold text-foreground mt-0.5">
+                  {formatCurrency(metrics.totalValue)}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-xs text-muted-foreground">Deals Converted</p>
+                <p className="text-xl font-bold text-emerald-600 mt-0.5">
+                  {metrics.wonCount} Deals
+                </p>
+              </div>
+            </div>
+
+            {/* Target Progress Bar */}
+            <div className="space-y-1.5">
+              <div className="flex justify-between text-xs font-medium text-muted-foreground">
+                <span>Overall Goal Progress</span>
+                <span className="text-foreground font-semibold">{metrics.conversionRate}%</span>
+              </div>
+              <div className="w-full bg-muted rounded-full h-3 overflow-hidden p-0.5">
+                <div
+                  className="bg-gradient-to-r from-emerald-500 to-teal-600 h-2 rounded-full transition-all duration-700"
+                  style={{ width: `${Math.min(Number(metrics.conversionRate), 100)}%` }}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 pt-2">
+              <div className="p-3 rounded-lg bg-muted/40 border border-border/50">
+                <span className="text-[11px] text-muted-foreground block">Tasks Completed</span>
+                <span className="text-base font-bold text-foreground mt-0.5 block">
+                  {metrics.completedTasksCount} Tasks
+                </span>
+              </div>
+              <div className="p-3 rounded-lg bg-muted/40 border border-border/50">
+                <span className="text-[11px] text-muted-foreground block">Hot Pipeline</span>
+                <span className="text-base font-bold text-amber-600 mt-0.5 block">
+                  {metrics.hotLeads} Hot Leads
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Sales Team Performance Leaderboard Table */}
+      <div className="rounded-xl border border-border bg-card overflow-hidden shadow-sm space-y-3">
+        <div className="p-5 border-b border-border flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <div className="flex items-center gap-2">
+              <Award className="h-4 w-4 text-amber-500" />
+              <h2 className="text-base font-bold text-foreground">Sales Team Leaderboard</h2>
+            </div>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Performance rankings across all sales agents.
+            </p>
+          </div>
+          <span className="text-xs text-muted-foreground bg-muted px-2.5 py-1 rounded-md self-start sm:self-auto font-mono">
+            {leaderboard.length} Agents Listed
+          </span>
+        </div>
+
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full text-left text-xs sm:text-sm">
             <thead>
-              <tr className="border-b border-[#E7E7E5]">
-                <th className="text-left text-[11px] font-medium text-muted-foreground px-5 py-2.5">Requirement</th>
-                <th className="text-left text-[11px] font-medium text-muted-foreground px-5 py-2.5 hidden sm:table-cell">Company</th>
-                <th className="text-left text-[11px] font-medium text-muted-foreground px-5 py-2.5 hidden md:table-cell">Phone</th>
-                <th className="text-left text-[11px] font-medium text-muted-foreground px-5 py-2.5">Status</th>
-                <th className="text-left text-[11px] font-medium text-muted-foreground px-5 py-2.5 hidden lg:table-cell">Assigned</th>
+              <tr className="border-b border-border bg-muted/40 text-muted-foreground font-medium">
+                <th className="px-4 py-3 w-12 text-center">Rank</th>
+                <th className="px-4 py-3">Sales Person</th>
+                <th className="px-4 py-3 text-center">Assigned Leads</th>
+                <th className="px-4 py-3 text-center">Won Deals</th>
+                <th className="px-4 py-3 text-center">Conversion</th>
+                <th className="px-4 py-3 text-right">Revenue (₹)</th>
+                <th className="px-4 py-3 text-center">Status</th>
               </tr>
             </thead>
-            <tbody>
-              {recentLeads.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-5 py-8 text-center text-[13px] text-muted-foreground">
-                    No leads found.
-                  </td>
-                </tr>
-              ) : (
-                recentLeads.map((lead) => (
-                  <tr key={lead.id} className="border-b border-[#E7E7E5] last:border-0 hover:bg-[#F8F8F6] transition-colors">
-                    <td className="px-5 py-3">
-                      <Link href={`/leads/${lead.id}`} className="text-[12px] font-medium text-foreground hover:underline">
-                        {lead.requirement}
-                      </Link>
+            <tbody className="divide-y divide-border">
+              {leaderboard.map((agent, index) => {
+                const isCurrent = agent.id === user?.id;
+                return (
+                  <tr
+                    key={agent.id}
+                    className={cn(
+                      "hover:bg-muted/30 transition-colors",
+                      isCurrent && "bg-emerald-50/30"
+                    )}
+                  >
+                    {/* Rank Badge */}
+                    <td className="px-4 py-3.5 text-center font-bold">
+                      {index === 0 && <span className="text-lg">🥇</span>}
+                      {index === 1 && <span className="text-lg">🥈</span>}
+                      {index === 2 && <span className="text-lg">🥉</span>}
+                      {index > 2 && <span className="text-muted-foreground font-mono">#{index + 1}</span>}
                     </td>
-                    <td className="px-5 py-3 text-[12px] text-muted-foreground hidden sm:table-cell">{lead.company}</td>
-                    <td className="px-5 py-3 text-[12px] text-muted-foreground hidden md:table-cell">{lead.phone}</td>
-                    <td className="px-5 py-3">
-                      <StatusBadge status={lead.status} />
+
+                    {/* Agent Name */}
+                    <td className="px-4 py-3.5">
+                      <div>
+                        <p className="font-semibold text-foreground flex items-center gap-1.5">
+                          {agent.name}
+                          {isCurrent && (
+                            <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.2 rounded font-normal">
+                              You
+                            </span>
+                          )}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground">{agent.email}</p>
+                      </div>
                     </td>
-                    <td className="px-5 py-3 text-[12px] text-muted-foreground hidden lg:table-cell">{lead.assignedToName || "—"}</td>
+
+                    {/* Total Leads */}
+                    <td className="px-4 py-3.5 text-center font-medium">
+                      {agent.totalLeads}
+                    </td>
+
+                    {/* Won Count */}
+                    <td className="px-4 py-3.5 text-center font-bold text-emerald-600">
+                      {agent.wonCount}
+                    </td>
+
+                    {/* Conversion Rate */}
+                    <td className="px-4 py-3.5 text-center font-medium">
+                      <span className="px-2 py-0.5 rounded bg-muted text-foreground">
+                        {agent.conversionRate}%
+                      </span>
+                    </td>
+
+                    {/* Revenue */}
+                    <td className="px-4 py-3.5 text-right font-bold text-foreground">
+                      {formatCurrency(agent.revenue)}
+                    </td>
+
+                    {/* Performance Status */}
+                    <td className="px-4 py-3.5 text-center">
+                      {agent.wonCount >= 5 ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-800">
+                          🌟 Top Performer
+                        </span>
+                      ) : agent.wonCount > 0 ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-100 text-blue-800">
+                          👍 Active
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-zinc-100 text-zinc-700">
+                          ⏳ In Pipeline
+                        </span>
+                      )}
+                    </td>
                   </tr>
-                ))
-              )}
+                );
+              })}
             </tbody>
           </table>
         </div>
       </div>
-
-      {/* Footer */}
-      <p className="text-center text-[11px] text-muted-foreground py-2">
-        Serene CRM — Simple CRM for growing businesses
-      </p>
-    </div>
-  );
-}
-
-function KpiCard({
-  icon,
-  title,
-  value,
-  alert,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  value: string | number;
-  alert?: boolean;
-}) {
-  return (
-    <div
-      className={cn(
-        "rounded-xl border bg-white p-3.5",
-        alert ? "border-red-200 bg-red-50/50" : "border-[#E7E7E5]"
-      )}
-    >
-      <div className="flex items-center gap-2 mb-1.5">
-        <div className={cn("text-muted-foreground", alert && "text-red-500")}>{icon}</div>
-        <p className="text-[11px] text-muted-foreground">{title}</p>
-      </div>
-      <p className={cn("text-[20px] font-semibold tracking-tight", alert && "text-red-600")}>{value}</p>
     </div>
   );
 }
