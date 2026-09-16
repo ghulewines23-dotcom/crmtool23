@@ -1,15 +1,13 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Users, Building2, UserCheck, Clock } from "lucide-react"
+import { Users, Building2, Clock } from "lucide-react"
 
 interface Stats {
   totalUsers: number
   pendingUsers: number
   activeUsers: number
-  suspendedUsers: number
   organizations: number
-  pendingJoinRequests: number
 }
 
 interface RecentUser {
@@ -37,15 +35,13 @@ export default function OverviewPage() {
   useEffect(() => {
     async function load() {
       try {
-        const [usersRes, orgsRes, joinRes] = await Promise.all([
+        const [usersRes, orgsRes] = await Promise.all([
           fetch("/api/platform/users?limit=200", { credentials: "same-origin" }),
           fetch("/api/platform/organizations?limit=200", { credentials: "same-origin" }),
-          fetch("/api/platform/join-requests?status=pending&limit=200", { credentials: "same-origin" }),
         ])
 
         const usersData = await usersRes.json()
         const orgsData = await orgsRes.json()
-        const joinData = await joinRes.json()
 
         const users = usersData.users || []
         const orgs = orgsData.organizations || []
@@ -54,9 +50,7 @@ export default function OverviewPage() {
           totalUsers: users.length,
           pendingUsers: users.filter((u: { status: string }) => u.status === "pending_access").length,
           activeUsers: users.filter((u: { status: string }) => u.status === "active").length,
-          suspendedUsers: users.filter((u: { status: string }) => u.status === "suspended").length,
           organizations: orgs.length,
-          pendingJoinRequests: joinData.total || 0,
         })
 
         setRecentUsers(users.slice(0, 5))
@@ -81,9 +75,7 @@ export default function OverviewPage() {
     { label: "Total Users", value: stats?.totalUsers ?? 0, icon: Users, color: "bg-gray-100 text-gray-600" },
     { label: "Pending Users", value: stats?.pendingUsers ?? 0, icon: Clock, color: "bg-yellow-50 text-yellow-600" },
     { label: "Active Users", value: stats?.activeUsers ?? 0, icon: Users, color: "bg-green-50 text-green-600" },
-    { label: "Suspended", value: stats?.suspendedUsers ?? 0, icon: Users, color: "bg-red-50 text-red-600" },
     { label: "Organizations", value: stats?.organizations ?? 0, icon: Building2, color: "bg-blue-50 text-blue-600" },
-    { label: "Pending Join Requests", value: stats?.pendingJoinRequests ?? 0, icon: UserCheck, color: "bg-purple-50 text-purple-600" },
   ]
 
   return (

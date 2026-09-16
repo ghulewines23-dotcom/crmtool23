@@ -9,7 +9,6 @@ import {
   Users,
   Building2,
   Shield,
-  UserCheck,
   ScrollText,
   Settings,
   LogOut,
@@ -22,7 +21,6 @@ const NAV_ITEMS = [
   { href: "/platform/users", label: "Users", icon: Users },
   { href: "/platform/organizations", label: "Organizations", icon: Building2 },
   { href: "/platform/access", label: "Access Control", icon: Shield },
-  { href: "/platform/join-requests", label: "Join Requests", icon: UserCheck },
   { href: "/platform/audit-logs", label: "Audit Logs", icon: ScrollText },
   { href: "/platform/settings", label: "Settings", icon: Settings },
 ]

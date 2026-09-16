@@ -11,7 +11,6 @@ interface Org {
   status: string
   memberCount: number
   createdAt: string
-  subscription: { plan: string; status: string } | null
 }
 
 export default function OrganizationsPage() {
@@ -66,7 +65,6 @@ export default function OrganizationsPage() {
               <th className="px-4 py-3 text-left font-medium text-gray-600">Organization ID</th>
               <th className="px-4 py-3 text-left font-medium text-gray-600">Name</th>
               <th className="px-4 py-3 text-left font-medium text-gray-600">Members</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">Plan</th>
               <th className="px-4 py-3 text-left font-medium text-gray-600">Status</th>
               <th className="px-4 py-3 text-left font-medium text-gray-600">Created</th>
             </tr>
@@ -74,11 +72,11 @@ export default function OrganizationsPage() {
           <tbody className="divide-y divide-gray-100">
             {loading ? (
               <tr>
-                <td colSpan={6} className="px-4 py-12 text-center text-gray-500">Loading...</td>
+                <td colSpan={5} className="px-4 py-12 text-center text-gray-500">Loading...</td>
               </tr>
             ) : orgs.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-12 text-center text-gray-500">
+                <td colSpan={5} className="px-4 py-12 text-center text-gray-500">
                   No organizations created yet.
                 </td>
               </tr>
@@ -88,7 +86,6 @@ export default function OrganizationsPage() {
                   <td className="px-4 py-3 font-mono text-xs text-gray-500">{o.id.slice(0, 12)}...</td>
                   <td className="px-4 py-3 font-medium text-[#1a1a1a]">{o.name}</td>
                   <td className="px-4 py-3 text-gray-600">{o.memberCount}</td>
-                  <td className="px-4 py-3 text-gray-600">{o.subscription?.plan || "—"}</td>
                   <td className="px-4 py-3">
                     <OrgStatusBadge status={o.status} />
                   </td>

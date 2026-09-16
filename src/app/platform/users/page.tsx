@@ -107,7 +107,6 @@ export default function UsersPage() {
             <option value="">All Status</option>
             <option value="pending_access">Pending</option>
             <option value="active">Active</option>
-            <option value="suspended">Suspended</option>
           </select>
         </div>
       </div>
@@ -268,7 +267,6 @@ export default function UsersPage() {
                 >
                   <option value="pending_access">PENDING_ACCESS</option>
                   <option value="active">ACTIVE</option>
-                  <option value="suspended">SUSPENDED</option>
                 </select>
               </div>
 
