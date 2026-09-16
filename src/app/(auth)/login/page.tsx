@@ -40,8 +40,6 @@ export default function LoginPage() {
 
       if (role === "SERENE_OWNER") {
         window.location.href = "/platform"
-      } else if (!orgId) {
-        window.location.href = "/onboarding"
       } else {
         window.location.href = "/dashboard"
       }

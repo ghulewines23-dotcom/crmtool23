@@ -13,10 +13,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     if (!isLoading && !isAuthenticated) {
       router.replace("/login");
     }
-    if (!isLoading && isAuthenticated && user && user.role !== "SERENE_OWNER" && !user.organizationId) {
-      router.replace("/onboarding");
-    }
-  }, [isAuthenticated, isLoading, user, router]);
+  }, [isAuthenticated, isLoading, router]);
 
   if (isLoading) {
     return (
@@ -27,14 +24,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }
 
   if (!isAuthenticated || !user) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-background">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-border border-t-primary" />
-      </div>
-    );
-  }
-
-  if (user.role !== "SERENE_OWNER" && !user.organizationId) {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-border border-t-primary" />

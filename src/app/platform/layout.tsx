@@ -13,11 +13,28 @@ import {
   LogOut,
   Menu,
   X,
+  Phone,
+  FileText,
+  ClipboardList,
+  Briefcase,
+  CreditCard,
+  Upload,
 } from "lucide-react"
 
-const NAV_ITEMS = [
-  { href: "/platform", label: "Overview", icon: LayoutDashboard },
-  { href: "/platform/users", label: "Users", icon: Users },
+const CRM_NAV = [
+  { href: "/platform/overview", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/platform/leads", label: "Leads", icon: Phone },
+  { href: "/platform/clients", label: "Clients", icon: Users },
+  { href: "/platform/tasks", label: "Tasks", icon: ClipboardList },
+  { href: "/platform/projects", label: "Projects", icon: Briefcase },
+  { href: "/platform/invoices", label: "Invoices", icon: FileText },
+  { href: "/platform/team", label: "Team", icon: Users },
+  { href: "/platform/import", label: "Import", icon: Upload },
+  { href: "/platform/payments", label: "Payments", icon: CreditCard },
+]
+
+const ADMIN_NAV = [
+  { href: "/platform/users", label: "Manage Users", icon: Shield },
   { href: "/platform/access", label: "Access Control", icon: Shield },
   { href: "/platform/audit-logs", label: "Audit Logs", icon: ScrollText },
   { href: "/platform/settings", label: "Settings", icon: Settings },
@@ -65,26 +82,47 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
         <div className="fixed inset-0 z-40 bg-black/60 lg:hidden" onClick={() => setSidebarOpen(false)} />
       )}
 
-      <aside className={`fixed inset-y-0 left-0 z-50 w-56 bg-[#111] border-r border-gray-800 transform transition-transform duration-200 lg:translate-x-0 lg:static lg:z-auto ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
+      <aside className={`fixed inset-y-0 left-0 z-50 w-56 bg-[#111] border-r border-gray-800 transform transition-transform duration-200 lg:translate-x-0 lg:static lg:z-auto overflow-y-auto ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
         <div className="flex h-full flex-col">
           <div className="flex h-12 items-center justify-between border-b border-gray-800 px-4">
-            <span className="text-sm font-semibold text-white">Serene CRM</span>
+            <span className="text-sm font-semibold text-white">Serene Agency</span>
             <button onClick={() => setSidebarOpen(false)} className="lg:hidden text-gray-500">
               <X className="h-4 w-4" />
             </button>
           </div>
 
-          <nav className="flex-1 space-y-0.5 px-2 py-3">
-            {NAV_ITEMS.map((item) => {
-              const isActive = pathname === item.href || (item.href !== "/platform" && pathname.startsWith(item.href))
+          <nav className="flex-1 py-3">
+            <div className="px-3 mb-1">
+              <span className="text-[10px] font-medium uppercase tracking-wider text-gray-600">CRM</span>
+            </div>
+            {CRM_NAV.map((item) => {
+              const isActive = pathname === item.href
               return (
                 <Link
                   key={item.href}
                   href={item.href}
                   onClick={() => setSidebarOpen(false)}
-                  className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors ${isActive ? "bg-gray-800 text-white" : "text-gray-400 hover:bg-gray-800/50 hover:text-gray-200"}`}
+                  className={`flex items-center gap-2.5 mx-2 rounded-lg px-3 py-1.5 text-[13px] transition-colors ${isActive ? "bg-gray-800 text-white" : "text-gray-400 hover:bg-gray-800/50 hover:text-gray-200"}`}
                 >
-                  <item.icon className="h-4 w-4" />
+                  <item.icon className="h-3.5 w-3.5" />
+                  {item.label}
+                </Link>
+              )
+            })}
+
+            <div className="px-3 mt-4 mb-1">
+              <span className="text-[10px] font-medium uppercase tracking-wider text-gray-600">Admin</span>
+            </div>
+            {ADMIN_NAV.map((item) => {
+              const isActive = pathname === item.href
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setSidebarOpen(false)}
+                  className={`flex items-center gap-2.5 mx-2 rounded-lg px-3 py-1.5 text-[13px] transition-colors ${isActive ? "bg-gray-800 text-white" : "text-gray-400 hover:bg-gray-800/50 hover:text-gray-200"}`}
+                >
+                  <item.icon className="h-3.5 w-3.5" />
                   {item.label}
                 </Link>
               )
@@ -92,9 +130,16 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
           </nav>
 
           <div className="border-t border-gray-800 p-2">
+            <Link
+              href="/dashboard"
+              className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] text-gray-400 hover:bg-gray-800 hover:text-gray-200"
+            >
+              <LayoutDashboard className="h-4 w-4" />
+              User Dashboard
+            </Link>
             <button
               onClick={() => { logout(); router.replace("/platform/login") }}
-              className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-gray-400 hover:bg-gray-800 hover:text-gray-200"
+              className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] text-gray-400 hover:bg-gray-800 hover:text-gray-200"
             >
               <LogOut className="h-4 w-4" />
               Logout
