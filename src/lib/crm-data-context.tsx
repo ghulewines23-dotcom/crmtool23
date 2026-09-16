@@ -377,19 +377,11 @@ export function CRMDataProvider({ children }: { children: React.ReactNode }) {
     [leads]
   );
 
-  // Auto-seed DB on first load, then fetch all data
+  // Fetch all data on mount
   useEffect(() => {
-    async function init() {
-      try {
-        await fetch("/api/seed", { method: "POST", headers: getAuthHeaders() });
-      } catch {
-        // ignore seed errors
-      }
-      fetchClients();
-      fetchTeamMembers();
-      fetchLeads();
-    }
-    init();
+    fetchClients();
+    fetchTeamMembers();
+    fetchLeads();
   }, [fetchClients, fetchTeamMembers, fetchLeads]);
 
   return (

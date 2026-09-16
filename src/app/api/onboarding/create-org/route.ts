@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db/connect";
 import TeamMember from "@/models/TeamMember";
 import Organization from "@/models/Organization";
+import Subscription from "@/models/Subscription";
 import { requireAuth } from "@/lib/api-auth";
 
 export async function POST(request: NextRequest) {
@@ -36,6 +37,18 @@ export async function POST(request: NextRequest) {
     });
 
     const orgId = String(org._id);
+
+    await Subscription.create({
+      organizationId: orgId,
+      plan: "FREE_TRIAL",
+      status: "TRIAL",
+      price: 0,
+      maxLeads: 999999,
+      maxMembers: 5,
+      currentPeriodStart: new Date(),
+      currentPeriodEnd: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+      trialEndsAt: null,
+    });
 
     await TeamMember.findByIdAndUpdate(user._id, {
       $set: {

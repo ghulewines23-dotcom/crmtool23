@@ -17,7 +17,7 @@ export async function GET(
     const client = await Client.findOne({
       _id: id,
       organizationId: auth.user.organizationId,
-    }).lean();
+    }).select("-password").lean();
 
     if (!client) {
       return Response.json(

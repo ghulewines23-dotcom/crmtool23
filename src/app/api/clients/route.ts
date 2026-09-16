@@ -13,6 +13,7 @@ export async function GET(request: NextRequest) {
     const clients = await Client.find({
       organizationId: auth.user.organizationId,
     })
+      .select("-password")
       .sort({ createdAt: -1 })
       .lean();
 

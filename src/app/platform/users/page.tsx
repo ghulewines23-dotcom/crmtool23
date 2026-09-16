@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
-import { Search, X, Trash2, ChevronLeft, ChevronRight } from "lucide-react"
+import { Search, X, Trash2, ChevronLeft, ChevronRight, Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
@@ -17,11 +17,12 @@ interface PlatformUser {
   createdAt: string
 }
 
+function formatRole(role: string): string {
+  return role.split("_").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")
+}
+
 export default function UsersPage() {
   const [users, setUsers] = useState<PlatformUser[]>([])
-  const [total, setTotal] = useState(0)
-  const [page, setPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("")
@@ -32,7 +33,7 @@ export default function UsersPage() {
 
   const fetchUsers = useCallback(async () => {
     setLoading(true)
-    const params = new URLSearchParams({ page: String(page), limit: "20" })
+    const params = new URLSearchParams({ page: "1", limit: "100" })
     if (search) params.set("search", search)
     if (statusFilter) params.set("status", statusFilter)
     try {
@@ -40,11 +41,9 @@ export default function UsersPage() {
       const data = await res.json()
       const filtered = (data.users || []).filter((u: PlatformUser) => u.role !== "SERENE_OWNER")
       setUsers(filtered)
-      setTotal(filtered.length)
-      setTotalPages(Math.ceil(filtered.length / 20))
     } catch { /* silent */ }
     setLoading(false)
-  }, [page, search, statusFilter])
+  }, [search, statusFilter])
 
   useEffect(() => { fetchUsers() }, [fetchUsers])
 
@@ -53,11 +52,7 @@ export default function UsersPage() {
   }
 
   function toggleSelectAll() {
-    if (selected.length === users.length) {
-      setSelected([])
-    } else {
-      setSelected(users.map((u) => u._id))
-    }
+    if (selected.length === users.length) { setSelected([]) } else { setSelected(users.map((u) => u._id)) }
   }
 
   async function bulkDelete() {
@@ -77,6 +72,31 @@ export default function UsersPage() {
     if (!confirm("Delete this user?")) return
     try {
       await fetch(`/api/platform/users/${id}`, { method: "DELETE", credentials: "same-origin" })
+      fetchUsers()
+    } catch { /* silent */ }
+  }
+
+  async function approveUser(user: PlatformUser) {
+    try {
+      await fetch(`/api/platform/users/${user._id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ status: "active", role: user.role, canAccessCRM: true }),
+      })
+      fetchUsers()
+    } catch { /* silent */ }
+  }
+
+  async function suspendUser(user: PlatformUser) {
+    if (!confirm(`Suspend ${user.name}?`)) return
+    try {
+      await fetch(`/api/platform/users/${user._id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ status: "suspended", role: user.role, canAccessCRM: false }),
+      })
       fetchUsers()
     } catch { /* silent */ }
   }
@@ -107,12 +127,19 @@ export default function UsersPage() {
     return new Date(d).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
   }
 
+  const pendingCount = users.filter((u) => u.status === "pending_access").length
+
   return (
     <div className="space-y-4">
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <h2 className="text-base font-semibold text-white">Users</h2>
+          {pendingCount > 0 && (
+            <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-400">
+              {pendingCount} pending
+            </span>
+          )}
           {selected.length > 0 && (
             <button
               onClick={bulkDelete}
@@ -130,21 +157,59 @@ export default function UsersPage() {
             <Input
               placeholder="Search..."
               value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(1) }}
+              onChange={(e) => { setSearch(e.target.value) }}
               className="pl-9 w-48 bg-[#111] border-gray-800 text-white placeholder:text-gray-600"
             />
           </div>
           <select
             value={statusFilter}
-            onChange={(e) => { setStatusFilter(e.target.value); setPage(1) }}
+            onChange={(e) => setStatusFilter(e.target.value)}
             className="rounded-lg border border-gray-800 bg-[#111] px-3 py-1.5 text-sm text-gray-300"
           >
             <option value="">All</option>
             <option value="pending_access">Pending</option>
             <option value="active">Active</option>
+            <option value="suspended">Suspended</option>
           </select>
         </div>
       </div>
+
+      {/* Pending users section */}
+      {pendingCount > 0 && !statusFilter && (
+        <div className="rounded-lg border border-amber-800/30 bg-amber-500/5 p-4">
+          <h3 className="text-sm font-medium text-amber-400 mb-3">Pending Approval</h3>
+          <div className="space-y-2">
+            {users.filter((u) => u.status === "pending_access").map((u) => (
+              <div key={u._id} className="flex items-center justify-between rounded-lg border border-gray-800 bg-[#111] px-4 py-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-500/10 text-xs font-medium text-amber-400">
+                    {u.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)}
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-white">{u.name}</p>
+                    <p className="text-xs text-gray-500">{u.email} &middot; {formatRole(u.role)}</p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => approveUser(u)}
+                    className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700"
+                  >
+                    <Check className="h-3.5 w-3.5" />
+                    Approve
+                  </button>
+                  <button
+                    onClick={() => suspendUser(u)}
+                    className="rounded-lg border border-gray-700 px-3 py-1.5 text-xs font-medium text-gray-400 hover:bg-gray-800"
+                  >
+                    Reject
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Table */}
       <div className="rounded-lg border border-gray-800 bg-[#111] overflow-x-auto">
@@ -171,10 +236,10 @@ export default function UsersPage() {
           <tbody className="divide-y divide-gray-800/50">
             {loading ? (
               <tr><td colSpan={8} className="px-3 py-12 text-center text-gray-500">Loading...</td></tr>
-            ) : users.length === 0 ? (
-              <tr><td colSpan={8} className="px-3 py-12 text-center text-gray-500">No users found.</td></tr>
+            ) : users.filter((u) => u.status !== "pending_access").length === 0 ? (
+              <tr><td colSpan={8} className="px-3 py-12 text-center text-gray-500">No active users found.</td></tr>
             ) : (
-              users.map((u) => (
+              users.filter((u) => u.status !== "pending_access").map((u) => (
                 <tr key={u._id} className="hover:bg-white/[0.02]">
                   <td className="px-3 py-2">
                     <input
@@ -189,7 +254,7 @@ export default function UsersPage() {
                   <td className="px-3 py-2">
                     <StatusBadge status={u.status} />
                   </td>
-                  <td className="px-3 py-2 text-gray-400 text-xs">{u.role}</td>
+                  <td className="px-3 py-2 text-gray-400 text-xs">{formatRole(u.role)}</td>
                   <td className="px-3 py-2">
                     <span className={`text-xs ${u.canAccessCRM ? "text-emerald-400" : "text-gray-600"}`}>
                       {u.canAccessCRM ? "ON" : "OFF"}
@@ -211,17 +276,6 @@ export default function UsersPage() {
         </table>
       </div>
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <p className="text-xs text-gray-500">Page {page} of {totalPages}</p>
-          <div className="flex gap-1">
-            <button disabled={page <= 1} onClick={() => setPage(page - 1)} className="rounded p-1.5 text-gray-400 hover:bg-gray-800 disabled:opacity-30"><ChevronLeft className="h-4 w-4" /></button>
-            <button disabled={page >= totalPages} onClick={() => setPage(page + 1)} className="rounded p-1.5 text-gray-400 hover:bg-gray-800 disabled:opacity-30"><ChevronRight className="h-4 w-4" /></button>
-          </div>
-        </div>
-      )}
-
       {/* Edit Drawer */}
       {selectedUser && (
         <div className="fixed inset-0 z-50 flex justify-end">
@@ -232,14 +286,11 @@ export default function UsersPage() {
               <button onClick={() => setSelectedUser(null)} className="text-gray-500 hover:text-gray-300"><X className="h-4 w-4" /></button>
             </div>
             <div className="space-y-4 p-4">
-              {/* Info */}
               <div className="space-y-1.5 rounded-lg border border-gray-800 p-3 text-xs">
-                <InfoRow label="ID" value={selectedUser._id} />
                 <InfoRow label="Name" value={selectedUser.name} />
                 <InfoRow label="Email" value={selectedUser.email} />
               </div>
 
-              {/* Permissions */}
               <div className="space-y-2">
                 <p className="text-xs font-medium text-gray-400">Permissions</p>
                 <Toggle label="CRM Access" checked={selectedUser.canAccessCRM} onChange={(v) => setSelectedUser({ ...selectedUser, canAccessCRM: v })} />
@@ -247,22 +298,19 @@ export default function UsersPage() {
                 <Toggle label="Join Organization" checked={selectedUser.canJoinOrganization} onChange={(v) => setSelectedUser({ ...selectedUser, canJoinOrganization: v })} />
               </div>
 
-              {/* Role */}
               <div>
                 <p className="text-xs font-medium text-gray-400 mb-1.5">Role</p>
                 <select value={selectedUser.role} onChange={(e) => setSelectedUser({ ...selectedUser, role: e.target.value })} className="w-full rounded-lg border border-gray-800 bg-[#0a0a0a] px-3 py-2 text-sm text-white">
-                  <option value="SALES_PERSON">SALES_PERSON</option>
-                  <option value="ADMIN">ADMIN</option>
-                  <option value="FOUNDER">FOUNDER</option>
+                  <option value="SALES_PERSON">Sales Person</option>
+                  <option value="ADMIN">Admin</option>
                 </select>
               </div>
 
-              {/* Status */}
               <div>
                 <p className="text-xs font-medium text-gray-400 mb-1.5">Status</p>
                 <select value={selectedUser.status} onChange={(e) => setSelectedUser({ ...selectedUser, status: e.target.value })} className="w-full rounded-lg border border-gray-800 bg-[#0a0a0a] px-3 py-2 text-sm text-white">
-                  <option value="pending_access">PENDING</option>
-                  <option value="active">ACTIVE</option>
+                  <option value="active">Active</option>
+                  <option value="suspended">Suspended</option>
                 </select>
               </div>
 
@@ -279,8 +327,12 @@ export default function UsersPage() {
 }
 
 function StatusBadge({ status }: { status: string }) {
-  const s = status === "active" ? "bg-emerald-500/10 text-emerald-400" : "bg-yellow-500/10 text-yellow-400"
-  return <span className={`text-xs px-2 py-0.5 rounded-full ${s}`}>{status}</span>
+  const cls = status === "active"
+    ? "bg-emerald-500/10 text-emerald-400"
+    : status === "suspended"
+    ? "bg-red-500/10 text-red-400"
+    : "bg-yellow-500/10 text-yellow-400"
+  return <span className={`text-xs px-2 py-0.5 rounded-full ${cls}`}>{status}</span>
 }
 
 function InfoRow({ label, value }: { label: string; value: string }) {

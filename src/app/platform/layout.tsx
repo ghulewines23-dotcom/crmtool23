@@ -31,9 +31,9 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      router.replace("/login")
+      router.replace("/platform/login")
     }
-    if (!isLoading && isAuthenticated && user?.role !== "SERENE_OWNER") {
+    if (!isLoading && isAuthenticated && user && user.role !== "SERENE_OWNER") {
       router.replace("/dashboard")
     }
   }, [isAuthenticated, isLoading, user, router])
@@ -46,7 +46,7 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
     )
   }
 
-  if (!isAuthenticated || user?.role !== "SERENE_OWNER") {
+  if (!isAuthenticated || !user || user.role !== "SERENE_OWNER") {
     return null
   }
 

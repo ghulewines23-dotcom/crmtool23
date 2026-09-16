@@ -72,7 +72,7 @@ export default function AdminDashboard() {
 
   const salesPerformance = useMemo(() =>
     teamMembers
-      .filter((m) => m.role === "SALES_PERSON" || m.role === "ADMIN" || m.role === "FOUNDER")
+      .filter((m) => m.role === "SALES_PERSON" || m.role === "ADMIN")
       .map((m) => {
         const memberLeads = leads.filter((l) => l.assignedTo === m.id);
         const memberWon = memberLeads.filter((l) => l.status === "won").length;

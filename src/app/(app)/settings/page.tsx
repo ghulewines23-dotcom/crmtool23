@@ -502,7 +502,6 @@ export default function SettingsPage() {
               >
                 <option value="SALES_PERSON">Sales Person</option>
                 <option value="ADMIN">Admin</option>
-                <option value="FOUNDER">Founder</option>
               </select>
             </div>
           </div>

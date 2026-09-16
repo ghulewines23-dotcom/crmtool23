@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db/connect";
+import JoinToken, { hashToken, generateRawToken } from "@/models/JoinToken";
 import TeamMember from "@/models/TeamMember";
+import Organization from "@/models/Organization";
 import { requireFounder, checkMemberLimit, requireActiveSubscription } from "@/lib/api-auth";
 import { logAudit, AUDIT_ACTIONS } from "@/lib/auth-helpers";
 
@@ -11,10 +13,8 @@ function jsonError(message: string, status: number) {
 /**
  * GET /api/team
  * List team members for the authenticated user's organization.
- * FOUNDER, ADMIN, SALES_PERSON can all see the team list.
  */
 export async function GET(request: NextRequest) {
-  // Any authenticated customer role can see the team
   const { requireAuth } = await import("@/lib/api-auth");
   const auth = await requireAuth(request);
   if ("error" in auth) return auth.error;
@@ -57,18 +57,18 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST /api/team
- * Invite a new member (FOUNDER only).
- * Creates user account without password — they set it via join link.
+ * FOUNDER invites a new member — generates invite link.
+ *
+ * Body: { name: string, email: string, role: "ADMIN" | "SALES_PERSON", phone?: string }
+ * Returns: { inviteLink: string }
  */
 export async function POST(request: NextRequest) {
   const auth = await requireFounder(request);
   if ("error" in auth) return auth.error;
 
-  // Check subscription status
   const subCheck = await requireActiveSubscription(auth.user.organizationId);
   if (subCheck) return subCheck;
 
-  // Check member limit
   const limitCheck = await checkMemberLimit(auth.user.organizationId);
   if (!limitCheck.allowed) {
     return jsonError(limitCheck.reason || "Member limit reached", 403);
@@ -78,70 +78,80 @@ export async function POST(request: NextRequest) {
     await connectDB();
 
     const body = await request.json();
+    const { name, email, role, phone } = body;
 
-    if (!body.name || !body.email) {
-      return jsonError("Name and email are required", 400);
+    if (!name || !email) return jsonError("Name and email are required", 400);
+
+    const recipientEmail = email.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipientEmail)) {
+      return jsonError("Invalid email address", 400);
     }
 
-    // Cannot assign SERENE_OWNER role through this endpoint
-    const role = body.role || "SALES_PERSON";
-    if (!["ADMIN", "SALES_PERSON"].includes(role)) {
-      return jsonError(
-        "Invalid role. Must be ADMIN or SALES_PERSON",
-        400
-      );
+    const validRole = role || "SALES_PERSON";
+    if (!["ADMIN", "SALES_PERSON"].includes(validRole)) {
+      return jsonError("Role must be ADMIN or SALES_PERSON", 400);
     }
 
-    // Global email uniqueness check
-    const existing = await TeamMember.findOne({
-      email: body.email.trim().toLowerCase(),
-    }).lean();
+    // Prevent inviting yourself
+    if (recipientEmail === auth.user.email) {
+      return jsonError("You cannot invite yourself", 400);
+    }
 
+    // Check if user already exists with this email
+    const existing = await TeamMember.findOne({ email: recipientEmail }).lean();
     if (existing) {
       return jsonError("A user with this email already exists", 409);
     }
 
-    const initials = body.name
-      .split(" ")
-      .map((n: string) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
+    // Invalidate previous active invitations for this email + org
+    await JoinToken.updateMany(
+      { organizationId: auth.user.organizationId, recipientEmail, status: "active" },
+      { status: "revoked", revokedAt: new Date() }
+    );
 
-    const member = await TeamMember.create({
-      name: body.name,
-      email: body.email.trim().toLowerCase(),
-      phone: body.phone || "",
-      role,
-      avatar: initials,
-      status: "invited",
+    // Generate token
+    const rawToken = generateRawToken();
+    const tokenHash = hashToken(rawToken);
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+
+    await JoinToken.create({
+      tokenHash,
       organizationId: auth.user.organizationId,
-      passwordHash: "", // Set when they accept the invite
+      role: validRole,
+      createdBy: auth.user.id,
+      recipientEmail,
+      expiresAt,
+      status: "active",
     });
 
+    // Build invite URL
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL
+      || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+    const inviteLink = `${baseUrl}/join?token=${rawToken}`;
+
+    // Audit log
     await logAudit({
       actorId: auth.user.id,
       actorEmail: auth.user.email,
       organizationId: auth.user.organizationId,
-      action: AUDIT_ACTIONS.MEMBER_JOINED,
-      targetType: "User",
-      targetId: String(member._id),
-      metadata: { name: body.name, email: body.email, role },
+      action: AUDIT_ACTIONS.JOIN_TOKEN_CREATED,
+      targetType: "JoinToken",
+      metadata: { role: validRole, recipientEmail, name },
     });
 
-    return Response.json(
-      {
-        success: true,
-        member: { ...member.toObject(), id: String(member._id) },
-      },
-      { status: 201 }
-    );
+    return Response.json({
+      success: true,
+      inviteLink,
+      role: validRole,
+      expiresAt,
+      message: `Invite link generated for ${recipientEmail}`,
+    });
   } catch (error: unknown) {
-    console.error("Error creating team member:", error);
+    console.error("Error creating invite:", error);
     const err = error as { code?: number; message?: string };
     if (err.code === 11000) {
       return jsonError("A user with this email already exists", 409);
     }
-    return jsonError("Failed to create team member", 500);
+    return jsonError("Failed to create invite", 500);
   }
 }

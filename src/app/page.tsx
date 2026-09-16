@@ -1,5 +1,27 @@
-import { redirect } from "next/navigation";
+"use client"
+
+import { useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { useAuth } from "@/lib/auth-context"
 
 export default function Home() {
-  redirect("/dashboard");
+  const router = useRouter()
+  const { user, isAuthenticated, isLoading } = useAuth()
+
+  useEffect(() => {
+    if (isLoading) return
+    if (!isAuthenticated) {
+      router.replace("/login")
+    } else if (user?.role === "SERENE_OWNER") {
+      router.replace("/platform")
+    } else {
+      router.replace("/dashboard")
+    }
+  }, [isAuthenticated, isLoading, user, router])
+
+  return (
+    <div className="flex h-screen items-center justify-center">
+      <div className="h-8 w-8 animate-spin rounded-full border-2 border-border border-t-primary" />
+    </div>
+  )
 }

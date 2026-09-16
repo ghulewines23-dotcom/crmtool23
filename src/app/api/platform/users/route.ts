@@ -7,6 +7,10 @@ function jsonError(message: string, status: number) {
   return Response.json({ success: false, error: message }, { status });
 }
 
+function escapeRegex(s: string) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 /**
  * GET /api/platform/users
  * List all users across all organizations (SERENE_OWNER only).
@@ -31,9 +35,10 @@ export async function GET(request: NextRequest) {
     if (status) query.status = status;
     if (orgId) query.organizationId = orgId;
     if (search) {
+      const safe = escapeRegex(search);
       query.$or = [
-        { name: { $regex: search, $options: "i" } },
-        { email: { $regex: search, $options: "i" } },
+        { name: { $regex: safe, $options: "i" } },
+        { email: { $regex: safe, $options: "i" } },
       ];
     }
 
