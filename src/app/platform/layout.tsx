@@ -23,20 +23,29 @@ const NAV_ITEMS = [
   { href: "/platform/settings", label: "Settings", icon: Settings },
 ]
 
+const PUBLIC_ROUTES = ["/platform/login", "/platform/signup"]
+
 export default function PlatformLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
   const { user, isAuthenticated, isLoading, logout } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
+  const isPublic = PUBLIC_ROUTES.includes(pathname)
+
   useEffect(() => {
+    if (isPublic) return
     if (!isLoading && !isAuthenticated) {
       router.replace("/platform/login")
     }
     if (!isLoading && isAuthenticated && user && user.role !== "SERENE_OWNER") {
       router.replace("/dashboard")
     }
-  }, [isAuthenticated, isLoading, user, router])
+  }, [isAuthenticated, isLoading, user, router, isPublic])
+
+  if (isPublic) {
+    return <>{children}</>
+  }
 
   if (isLoading) {
     return (
@@ -84,7 +93,7 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
 
           <div className="border-t border-gray-800 p-2">
             <button
-              onClick={() => { logout(); router.replace("/login") }}
+              onClick={() => { logout(); router.replace("/platform/login") }}
               className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-gray-400 hover:bg-gray-800 hover:text-gray-200"
             >
               <LogOut className="h-4 w-4" />
