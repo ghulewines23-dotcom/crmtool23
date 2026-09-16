@@ -244,6 +244,8 @@ export interface TeamMember {
   projects: number;
   status: "active" | "inactive" | "invited";
   organizationId: string;
+  isSalesEligible?: boolean;
+  secondaryRole?: string;
 }
 
 export interface Activity {

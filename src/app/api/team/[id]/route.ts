@@ -65,6 +65,8 @@ export async function PUT(
         ...(body.phone !== undefined && { phone: body.phone }),
         ...(body.role && { role: body.role }),
         ...(body.status && ["active", "inactive"].includes(body.status) && { status: body.status }),
+        ...(body.isSalesEligible !== undefined && { isSalesEligible: body.isSalesEligible }),
+        ...(body.secondaryRole !== undefined && { secondaryRole: body.secondaryRole }),
         ...(initials && { avatar: initials }),
       },
       { new: true }

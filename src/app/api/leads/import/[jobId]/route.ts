@@ -81,16 +81,31 @@ export async function POST(
     const countBefore = await Lead.countDocuments({ organizationId });
     console.log(`[IMPORT CONFIRM] Lead count BEFORE insert: ${countBefore}`);
 
-    // Fetch active sales agents for round-robin
-    const salesAgents = await TeamMember.find({
+    // Fetch active sales agents for equal round-robin distribution
+    let salesAgents = await TeamMember.find({
       organizationId,
-      role: "SALES_PERSON",
       status: "active",
+      $or: [
+        { role: "SALES_PERSON" },
+        { isSalesEligible: true },
+        { secondaryRole: "SALES_PERSON" },
+      ],
     })
       .select("_id name")
       .lean();
 
-    console.log(`[IMPORT CONFIRM] Active sales agents: ${salesAgents.length}`);
+    // Fallback: If no explicit sales agents found, include active ADMINs
+    if (salesAgents.length === 0) {
+      salesAgents = await TeamMember.find({
+        organizationId,
+        status: "active",
+        role: { $in: ["SALES_PERSON", "ADMIN"] },
+      })
+        .select("_id name")
+        .lean();
+    }
+
+    console.log(`[IMPORT CONFIRM] Active sales agents for equal distribution: ${salesAgents.length}`);
 
     // Pre-insert safety check: filter out duplicates within batch & against database
     const incomingPhones = rows.map((r) => (r.phone || "").trim()).filter(Boolean);

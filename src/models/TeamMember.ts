@@ -33,6 +33,8 @@ export interface ITeamMember extends Document {
   canAccessCRM: boolean;
   canCreateOrganization: boolean;
   canJoinOrganization: boolean;
+  isSalesEligible?: boolean;
+  secondaryRole?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -80,6 +82,8 @@ const TeamMemberSchema = new Schema<ITeamMember>(
     canAccessCRM: { type: Boolean, default: false },
     canCreateOrganization: { type: Boolean, default: false },
     canJoinOrganization: { type: Boolean, default: true },
+    isSalesEligible: { type: Boolean, default: true },
+    secondaryRole: { type: String, default: "" },
   },
   { timestamps: true }
 );

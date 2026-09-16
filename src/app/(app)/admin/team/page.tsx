@@ -35,8 +35,8 @@ export default function AdminTeamPage() {
 
   const headerRef = useRef<HTMLInputElement>(null);
 
-  const [form, setForm] = useState({ name: "", email: "", phone: "", role: "SALES_PERSON" as TeamMember["role"] });
-  const [editForm, setEditForm] = useState({ name: "", email: "", phone: "", role: "SALES_PERSON" as TeamMember["role"] });
+  const [form, setForm] = useState({ name: "", email: "", phone: "", role: "SALES_PERSON" as TeamMember["role"], isSalesEligible: true });
+  const [editForm, setEditForm] = useState({ name: "", email: "", phone: "", role: "SALES_PERSON" as TeamMember["role"], isSalesEligible: true });
 
   const filtered = teamMembers.filter((m) => {
     if (statusFilter === "active" && m.status !== "active") return false;
@@ -94,21 +94,34 @@ export default function AdminTeamPage() {
       id: "", name: form.name, email: form.email, phone: form.phone,
       role: form.role, avatar: "", activeLeads: 0, activeTasks: 0,
       completedTasks: 0, projects: 0, status: "active", organizationId: "",
+      isSalesEligible: form.isSalesEligible,
+      secondaryRole: form.isSalesEligible ? "SALES_PERSON" : "",
     }]);
-    setForm({ name: "", email: "", phone: "", role: "SALES_PERSON" });
+    setForm({ name: "", email: "", phone: "", role: "SALES_PERSON", isSalesEligible: true });
     setAddOpen(false);
   }
 
   function openEdit(member: TeamMember) {
     setEditing(member);
-    setEditForm({ name: member.name, email: member.email, phone: member.phone, role: member.role });
+    setEditForm({
+      name: member.name,
+      email: member.email,
+      phone: member.phone,
+      role: member.role,
+      isSalesEligible: member.isSalesEligible !== undefined ? member.isSalesEligible : true,
+    });
     setEditOpen(true);
   }
 
   async function handleUpdate() {
     if (!editing || !editForm.name || !editForm.email) return;
     await updateTeamMember(editing.id, {
-      name: editForm.name, email: editForm.email, phone: editForm.phone, role: editForm.role,
+      name: editForm.name,
+      email: editForm.email,
+      phone: editForm.phone,
+      role: editForm.role,
+      isSalesEligible: editForm.isSalesEligible,
+      secondaryRole: editForm.isSalesEligible ? "SALES_PERSON" : "",
     });
     setEditOpen(false);
     setEditing(null);
@@ -323,6 +336,18 @@ export default function AdminTeamPage() {
                 <option value="SALES_PERSON">Sales Person</option><option value="ADMIN">Admin</option><option value="FOUNDER">Founder</option>
               </select>
             </div>
+            <div className="flex items-center gap-2 pt-1 border-t pt-3">
+              <input
+                type="checkbox"
+                id="add-sales-eligible"
+                checked={form.isSalesEligible}
+                onChange={(e) => setForm({ ...form, isSalesEligible: e.target.checked })}
+                className="h-4 w-4 rounded border-border accent-primary cursor-pointer"
+              />
+              <Label htmlFor="add-sales-eligible" className="text-[12px] font-medium cursor-pointer">
+                Also handles Sales (Auto-assign lead shares to this member)
+              </Label>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
@@ -344,6 +369,18 @@ export default function AdminTeamPage() {
               <select value={editForm.role} onChange={(e) => setEditForm({ ...editForm, role: e.target.value as TeamMember["role"] })} className="h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-[13px] outline-none">
                 <option value="SALES_PERSON">Sales Person</option><option value="ADMIN">Admin</option><option value="FOUNDER">Founder</option>
               </select>
+            </div>
+            <div className="flex items-center gap-2 pt-1 border-t pt-3">
+              <input
+                type="checkbox"
+                id="edit-sales-eligible"
+                checked={editForm.isSalesEligible}
+                onChange={(e) => setEditForm({ ...editForm, isSalesEligible: e.target.checked })}
+                className="h-4 w-4 rounded border-border accent-primary cursor-pointer"
+              />
+              <Label htmlFor="edit-sales-eligible" className="text-[12px] font-medium cursor-pointer">
+                Also handles Sales (Auto-assign lead shares to this member)
+              </Label>
             </div>
           </div>
           <DialogFooter>
