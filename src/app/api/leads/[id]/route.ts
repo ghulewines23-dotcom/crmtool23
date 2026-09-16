@@ -97,26 +97,26 @@ export async function PUT(
     const { id } = await params;
     const body = await request.json();
 
-    // For SALES_PERSON: only allow updating status of their assigned leads
+    // For SALES_PERSON: allow updating status, notes, nextFollowup of leads in their organization
     if (auth.user.role === "SALES_PERSON") {
       const lead = await Lead.findOne({
         _id: id,
         organizationId: auth.user.organizationId,
-        assignedTo: auth.user.id,
       }).lean();
 
       if (!lead) {
         return Response.json(
-          { success: false, error: "Lead not found or not assigned to you" },
+          { success: false, error: "Lead not found" },
           { status: 404 }
         );
       }
 
-      // SALES_PERSON can only update: status, notes, nextFollowup
+      // SALES_PERSON can update: status, notes, nextFollowup, value
       const allowedUpdate: Record<string, unknown> = {};
       if (body.status !== undefined) allowedUpdate.status = body.status;
       if (body.notes !== undefined) allowedUpdate.notes = body.notes;
       if (body.nextFollowup !== undefined) allowedUpdate.nextFollowup = body.nextFollowup;
+      if (body.value !== undefined) allowedUpdate.value = body.value;
       allowedUpdate.lastActivity = new Date();
 
       const updated = await Lead.findByIdAndUpdate(id, allowedUpdate, { new: true }).lean();
