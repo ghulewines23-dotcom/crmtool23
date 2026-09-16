@@ -28,7 +28,11 @@ export async function GET(request: NextRequest) {
     const activeOnly = searchParams.get("activeOnly") === "true";
 
     const query: Record<string, unknown> = {
-      organizationId: auth.user.organizationId,
+      $or: [
+        { organizationId: auth.user.organizationId },
+        { "organizations.organizationId": auth.user.organizationId },
+        { _id: auth.user.id },
+      ],
     };
 
     if (activeOnly) {

@@ -11,6 +11,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import type { TeamMember } from "@/lib/types";
 
 function formatRole(role: string): string {
+  if (role === "SERENE_OWNER") return "Serene Owner";
+  if (role === "FOUNDER") return "Owner / Founder";
   return role.split("_").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
 }
 
@@ -286,7 +288,16 @@ export default function AdminTeamPage() {
                       <Avatar className="h-8 w-8 shrink-0">
                         <AvatarFallback className="bg-muted text-[11px] font-medium text-foreground">{member.avatar}</AvatarFallback>
                       </Avatar>
-                      <span className="text-[13px] font-medium">{member.name}</span>
+                      <div className="flex flex-col">
+                        <span className="text-[13px] font-medium flex items-center gap-1.5">
+                          {member.name}
+                          {(member.role === "FOUNDER" || member.role === "SERENE_OWNER") && (
+                            <span className="text-[10px] font-semibold bg-amber-100 text-amber-800 px-1.5 py-0.2 rounded border border-amber-200">
+                              Owner
+                            </span>
+                          )}
+                        </span>
+                      </div>
                     </div>
                   </td>
                   <td className="px-4 py-3 text-[13px] text-muted-foreground hidden md:table-cell">{member.email}</td>
