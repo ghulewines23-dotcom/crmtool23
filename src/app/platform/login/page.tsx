@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Mail, Lock, Eye, EyeOff, Shield } from "lucide-react"
@@ -15,6 +15,19 @@ export default function PlatformLoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
+  const [cooldown, setCooldown] = useState(0)
+  const timerRef = useRef<NodeJS.Timeout | null>(null)
+
+  useEffect(() => {
+    if (cooldown > 0) {
+      timerRef.current = setTimeout(() => {
+        setCooldown((c) => c - 1)
+      }, 1000)
+    }
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current)
+    }
+  }, [cooldown])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -31,6 +44,12 @@ export default function PlatformLoginPage() {
       const data = await res.json()
 
       if (!data.success) {
+        if (res.status === 429) {
+          const match = data.error?.match(/(\d+)\s*second/)
+          if (match) {
+            setCooldown(parseInt(match[1]))
+          }
+        }
         throw new Error(data.error || "Login failed")
       }
 
@@ -56,6 +75,11 @@ export default function PlatformLoginPage() {
           {error && (
             <div className="rounded-lg border border-red-800/30 bg-red-500/5 px-4 py-3 text-[13px] text-red-400">
               {error}
+              {cooldown > 0 && (
+                <span className="ml-2 font-mono font-bold text-red-300">
+                  {cooldown}s
+                </span>
+              )}
             </div>
           )}
 
@@ -96,8 +120,8 @@ export default function PlatformLoginPage() {
             </div>
           </div>
 
-          <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white border-0" disabled={loading}>
-            {loading ? "Signing in..." : "Sign In"}
+          <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white border-0" disabled={loading || cooldown > 0}>
+            {cooldown > 0 ? `Wait ${cooldown}s` : loading ? "Signing in..." : "Sign In"}
           </Button>
         </form>
 

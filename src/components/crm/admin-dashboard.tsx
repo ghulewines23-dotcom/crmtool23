@@ -27,20 +27,21 @@ function formatCurrency(amount: number): string {
   return `₹${amount}`;
 }
 
-type Range = "15d" | "30d" | "3m" | "6m" | "1y";
+type Range = "all" | "15d" | "30d" | "3m" | "6m" | "1y";
 
 const rangeLabels: Record<Range, string> = {
+  all: "All Time",
   "15d": "Last 15 Days",
   "30d": "Last 30 Days",
-  "3m": "3 Months",
-  "6m": "6 Months",
-  "1y": "1 Year",
+  "3m": "Last 3 Months",
+  "6m": "Last 6 Months",
+  "1y": "Last 1 Year",
 };
 
 export default function AdminDashboard() {
   const { user } = useAuth();
   const { leads, clients, teamMembers } = useCRMData();
-  const [range, setRange] = useState<Range>("6m");
+  const [range, setRange] = useState<Range>("all");
   const [hoveredBar, setHoveredBar] = useState<number | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
@@ -53,7 +54,7 @@ export default function AdminDashboard() {
     const conversionRate = leads.length > 0 ? ((wonLeadsCount / leads.length) * 100).toFixed(1) : "0";
 
     const totalLeads = leads.length;
-    const newLeads = leads.filter((l) => l.status === "new").length;
+    const notConnectedLeads = leads.filter((l) => l.status === "not_connected").length;
     const hotLeads = leads.filter((l) => l.status === "hot_lead").length;
     const lostLeads = leads.filter((l) => l.status === "lost").length;
 
@@ -64,7 +65,7 @@ export default function AdminDashboard() {
       wonLeadsCount,
       conversionRate,
       totalLeads,
-      newLeads,
+      notConnectedLeads,
       hotLeads,
       lostLeads,
     };
@@ -89,35 +90,56 @@ export default function AdminDashboard() {
     [leads, teamMembers]
   );
 
-  const allRevenueData = useMemo(() => [
-    { month: "Apr", revenue: 180000, profit: 63000 },
-    { month: "May", revenue: 210000, profit: 73500 },
-    { month: "Jun", revenue: 195000, profit: 68250 },
-    { month: "Jul", revenue: 240000, profit: 84000 },
-    { month: "Aug", revenue: 225000, profit: 78750 },
-    { month: "Sep", revenue: metrics.totalRevenue, profit: metrics.estimatedProfit },
-  ], [metrics.totalRevenue, metrics.estimatedProfit]);
+  // Build chart data from actual won leads grouped by month (Aug 2025 onwards)
+  const chartData = useMemo(() => {
+    const wonLeads = leads.filter((l) => l.status === "won" && l.value > 0);
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const now = new Date();
 
-  const dailyData = useMemo(() => [
-    { day: "Sep 1", revenue: 8000, profit: 2800 },
-    { day: "Sep 3", revenue: 12000, profit: 4200 },
-    { day: "Sep 5", revenue: 6000, profit: 2100 },
-    { day: "Sep 7", revenue: 15000, profit: 5250 },
-    { day: "Sep 9", revenue: 9000, profit: 3150 },
-    { day: "Sep 11", revenue: 18000, profit: 6300 },
-    { day: "Sep 13", revenue: 11000, profit: 3850 },
-    { day: "Sep 14", revenue: metrics.totalRevenue / 14, profit: metrics.estimatedProfit / 14 },
-  ], [metrics.totalRevenue, metrics.estimatedProfit]);
+    // Agency started Aug 2025 — show from Aug to current month
+    const startYear = 2025;
+    const startMonth = 7; // August (0-indexed)
+    const months: { label: string; year: number; month: number }[] = [];
 
-  const chartData = range === "15d" || range === "30d"
-    ? dailyData.slice(0, range === "15d" ? 5 : 8)
-    : range === "3m"
-    ? allRevenueData.slice(-3)
-    : range === "1y"
-    ? allRevenueData
-    : allRevenueData;
+    let y = startYear;
+    let m = startMonth;
+    while (y < now.getFullYear() || (y === now.getFullYear() && m <= now.getMonth())) {
+      months.push({ label: monthNames[m], year: y, month: m });
+      m++;
+      if (m > 11) { m = 0; y++; }
+    }
 
-  const maxVal = Math.max(...chartData.map((d) => d.revenue));
+    return months.map((month) => {
+      const monthLeads = wonLeads.filter((l) => {
+        const d = new Date(l.createdAt || l.lastActivity || now);
+        return d.getFullYear() === month.year && d.getMonth() === month.month;
+      });
+      const revenue = monthLeads.reduce((sum, l) => sum + (l.value || 0), 0);
+      return {
+        label: month.label,
+        revenue,
+        profit: Math.round(revenue * 0.35),
+      };
+    });
+  }, [leads]);
+
+  const chartDisplayData = useMemo(() => {
+    if (range === "all" || range === "1y") return chartData;
+    const now = new Date();
+    let monthsBack = 12;
+    if (range === "15d") monthsBack = 0.5;
+    else if (range === "30d") monthsBack = 1;
+    else if (range === "3m") monthsBack = 3;
+    else if (range === "6m") monthsBack = 6;
+    const cutoff = new Date(now.getFullYear(), now.getMonth() - monthsBack, 1);
+    return chartData.filter((d) => {
+      const idx = chartData.indexOf(d);
+      const monthDate = new Date(2025, 7 + idx, 1);
+      return monthDate >= cutoff;
+    });
+  }, [chartData, range]);
+
+  const maxVal = Math.max(...chartDisplayData.map((d) => d.revenue), 1);
 
   return (
     <div className="space-y-5">
@@ -203,7 +225,7 @@ export default function AdminDashboard() {
         {/* Chart */}
         <div className="relative">
           <div className="flex items-end gap-2" style={{ height: "200px" }}>
-            {chartData.map((d, i) => (
+            {chartDisplayData.map((d, i) => (
               <div
                 key={i}
                 className="flex-1 flex flex-col items-center gap-1.5 relative"
@@ -214,7 +236,7 @@ export default function AdminDashboard() {
                 {hoveredBar === i && (
                   <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 rounded-lg border border-[#E7E7E5] bg-white shadow-[0_4px_12px_rgba(0,0,0,0.1)] px-3 py-2 z-10 whitespace-nowrap">
                     <p className="text-[11px] font-medium text-foreground mb-1">
-                      {"day" in d ? d.day : d.month}
+                      {d.label}
                     </p>
                     <p className="text-[11px] text-muted-foreground">Revenue: {formatCurrency(d.revenue)}</p>
                     <p className="text-[11px] text-muted-foreground">Profit: {formatCurrency(d.profit)}</p>
@@ -237,7 +259,7 @@ export default function AdminDashboard() {
                   />
                 </div>
                 <p className="text-[10px] text-muted-foreground">
-                  {"day" in d ? d.day : d.month}
+                  {d.label}
                 </p>
               </div>
             ))}
@@ -263,7 +285,7 @@ export default function AdminDashboard() {
         <div className="grid grid-cols-5 gap-4">
           {[
             { label: "Total Leads", value: metrics.totalLeads, color: "text-foreground" },
-            { label: "New Leads", value: metrics.newLeads, color: "text-foreground" },
+            { label: "Not Connected", value: metrics.notConnectedLeads, color: "text-foreground" },
             { label: "Hot Leads", value: metrics.hotLeads, color: "text-foreground" },
             { label: "Won Leads", value: metrics.wonLeadsCount, color: "text-emerald-600" },
             { label: "Lost Leads", value: metrics.lostLeads, color: "text-red-500" },

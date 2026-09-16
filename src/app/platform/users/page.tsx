@@ -11,9 +11,6 @@ interface PlatformUser {
   email: string
   role: string
   status: string
-  canAccessCRM: boolean
-  canCreateOrganization: boolean
-  canJoinOrganization: boolean
   createdAt: string
 }
 
@@ -82,7 +79,7 @@ export default function UsersPage() {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
-        body: JSON.stringify({ status: "active", role: user.role, canAccessCRM: true }),
+        body: JSON.stringify({ status: "active", role: user.role }),
       })
       fetchUsers()
     } catch { /* silent */ }
@@ -95,7 +92,7 @@ export default function UsersPage() {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
-        body: JSON.stringify({ status: "suspended", role: user.role, canAccessCRM: false }),
+        body: JSON.stringify({ status: "suspended", role: user.role }),
       })
       fetchUsers()
     } catch { /* silent */ }
@@ -112,9 +109,6 @@ export default function UsersPage() {
         body: JSON.stringify({
           status: selectedUser.status,
           role: selectedUser.role,
-          canAccessCRM: selectedUser.canAccessCRM,
-          canCreateOrganization: selectedUser.canCreateOrganization,
-          canJoinOrganization: selectedUser.canJoinOrganization,
         }),
       })
       const data = await res.json()
@@ -228,16 +222,15 @@ export default function UsersPage() {
               <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500">Email</th>
               <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500">Status</th>
               <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500">Role</th>
-              <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500">CRM</th>
               <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500">Created</th>
               <th className="px-3 py-2.5 text-right text-xs font-medium text-gray-500">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-800/50">
             {loading ? (
-              <tr><td colSpan={8} className="px-3 py-12 text-center text-gray-500">Loading...</td></tr>
+              <tr><td colSpan={6} className="px-3 py-12 text-center text-gray-500">Loading...</td></tr>
             ) : users.filter((u) => u.status !== "pending_access").length === 0 ? (
-              <tr><td colSpan={8} className="px-3 py-12 text-center text-gray-500">No active users found.</td></tr>
+              <tr><td colSpan={6} className="px-3 py-12 text-center text-gray-500">No active users found.</td></tr>
             ) : (
               users.filter((u) => u.status !== "pending_access").map((u) => (
                 <tr key={u._id} className="hover:bg-white/[0.02]">
@@ -255,11 +248,6 @@ export default function UsersPage() {
                     <StatusBadge status={u.status} />
                   </td>
                   <td className="px-3 py-2 text-gray-400 text-xs">{formatRole(u.role)}</td>
-                  <td className="px-3 py-2">
-                    <span className={`text-xs ${u.canAccessCRM ? "text-emerald-400" : "text-gray-600"}`}>
-                      {u.canAccessCRM ? "ON" : "OFF"}
-                    </span>
-                  </td>
                   <td className="px-3 py-2 text-gray-500 text-xs">{formatDate(u.createdAt)}</td>
                   <td className="px-3 py-2 text-right">
                     <div className="flex items-center justify-end gap-1">
@@ -289,13 +277,6 @@ export default function UsersPage() {
               <div className="space-y-1.5 rounded-lg border border-gray-800 p-3 text-xs">
                 <InfoRow label="Name" value={selectedUser.name} />
                 <InfoRow label="Email" value={selectedUser.email} />
-              </div>
-
-              <div className="space-y-2">
-                <p className="text-xs font-medium text-gray-400">Permissions</p>
-                <Toggle label="CRM Access" checked={selectedUser.canAccessCRM} onChange={(v) => setSelectedUser({ ...selectedUser, canAccessCRM: v })} />
-                <Toggle label="Create Organization" checked={selectedUser.canCreateOrganization} onChange={(v) => setSelectedUser({ ...selectedUser, canCreateOrganization: v })} />
-                <Toggle label="Join Organization" checked={selectedUser.canJoinOrganization} onChange={(v) => setSelectedUser({ ...selectedUser, canJoinOrganization: v })} />
               </div>
 
               <div>
@@ -341,16 +322,5 @@ function InfoRow({ label, value }: { label: string; value: string }) {
       <span className="text-gray-500">{label}</span>
       <span className="text-gray-300 font-mono break-all max-w-[60%] text-right">{value}</span>
     </div>
-  )
-}
-
-function Toggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <button type="button" onClick={() => onChange(!checked)} className="flex w-full items-center justify-between rounded-lg border border-gray-800 px-3 py-2 hover:bg-white/[0.02]">
-      <span className="text-xs text-gray-300">{label}</span>
-      <div className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${checked ? "bg-emerald-600" : "bg-gray-700"}`}>
-        <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${checked ? "translate-x-4" : "translate-x-0.5"}`} />
-      </div>
-    </button>
   )
 }

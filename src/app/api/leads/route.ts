@@ -8,17 +8,11 @@ import {
 } from "@/lib/api-auth";
 import { assignLeadToSalesPerson } from "@/lib/lead-assignment";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(request: NextRequest) {
   const auth = await requireAuth(request);
   if ("error" in auth) return auth.error;
-
-  // SERENE_OWNER cannot use this endpoint — they have platform routes
-  if (auth.user.role === "SERENE_OWNER") {
-    return Response.json(
-      { success: false, error: "Use the platform API for cross-org access" },
-      { status: 403 }
-    );
-  }
 
   try {
     await connectDB();
@@ -27,17 +21,25 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get("status");
     const search = searchParams.get("search");
     const page = parseInt(searchParams.get("page") || "1");
-    const limit = parseInt(searchParams.get("limit") || "50");
+    const limitParam = searchParams.get("limit");
+    
+    // Support limit=all or limit=1000 (default to 1000 if not specified to avoid truncating org leads)
+    let limit = 1000;
+    if (limitParam === "all") {
+      limit = 5000;
+    } else if (limitParam) {
+      const parsed = parseInt(limitParam);
+      if (!isNaN(parsed) && parsed > 0) {
+        limit = parsed;
+      }
+    }
+
+    console.log(`[GET /api/leads] user=${auth.user.id} role=${auth.user.role} orgId="${auth.user.organizationId}" page=${page} limit=${limit}`);
 
     // Always scope by organizationId — multi-tenant isolation
     const query: Record<string, unknown> = {
       organizationId: auth.user.organizationId,
     };
-
-    // SALES_PERSON can only see leads assigned to them
-    if (auth.user.role === "SALES_PERSON") {
-      query.assignedTo = auth.user.id;
-    }
 
     if (status && status !== "all") {
       query.status = status;
@@ -54,18 +56,29 @@ export async function GET(request: NextRequest) {
     }
 
     const total = await Lead.countDocuments(query);
+    // Sort by createdAt desc, then _id desc as tie-breaker for deterministic ordering
     const leads = await Lead.find(query)
-      .sort({ createdAt: -1 })
+      .sort({ createdAt: -1, _id: -1 })
       .skip((page - 1) * limit)
       .limit(limit)
       .lean();
 
+    console.log(`[GET /api/leads] found ${leads.length} leads, total=${total}`);
+
+    const serializedLeads = leads.map((l) => ({
+      ...l,
+      _id: String(l._id),
+      id: String(l._id),
+    }));
+
     return Response.json({
       success: true,
-      leads: leads.map((l) => ({ ...l, id: l._id })),
+      leads: serializedLeads,
       total,
       page,
       totalPages: Math.ceil(total / limit),
+    }, {
+      headers: { "Cache-Control": "no-store, no-cache, must-revalidate" },
     });
   } catch (error) {
     console.error("Error fetching leads:", error);

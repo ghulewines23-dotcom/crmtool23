@@ -3,6 +3,8 @@ import { connectDB } from "@/lib/db/connect";
 import Client from "@/models/Client";
 import { requireAuth } from "@/lib/api-auth";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(request: NextRequest) {
   const auth = await requireAuth(request);
   if ("error" in auth) return auth.error;
@@ -30,6 +32,14 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const auth = await requireAuth(request);
   if ("error" in auth) return auth.error;
+
+  // Only SERENE_OWNER can create clients
+  if (auth.user.role !== "SERENE_OWNER") {
+    return Response.json(
+      { success: false, error: "Only the owner can create clients" },
+      { status: 403 }
+    );
+  }
 
   try {
     await connectDB();

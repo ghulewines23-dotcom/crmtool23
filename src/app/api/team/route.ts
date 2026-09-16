@@ -6,6 +6,8 @@ import Organization from "@/models/Organization";
 import { requireFounder, checkMemberLimit, requireActiveSubscription } from "@/lib/api-auth";
 import { logAudit, AUDIT_ACTIONS } from "@/lib/auth-helpers";
 
+export const dynamic = "force-dynamic";
+
 function jsonError(message: string, status: number) {
   return Response.json({ success: false, error: message }, { status });
 }
@@ -18,10 +20,6 @@ export async function GET(request: NextRequest) {
   const { requireAuth } = await import("@/lib/api-auth");
   const auth = await requireAuth(request);
   if ("error" in auth) return auth.error;
-
-  if (auth.user.role === "SERENE_OWNER") {
-    return jsonError("Use /api/platform/users for cross-org access", 403);
-  }
 
   try {
     await connectDB();
@@ -45,6 +43,8 @@ export async function GET(request: NextRequest) {
     return Response.json({
       success: true,
       members: members.map((m) => ({ ...m, id: String(m._id) })),
+    }, {
+      headers: { "Cache-Control": "no-store, no-cache, must-revalidate" },
     });
   } catch (error) {
     console.error("Error fetching team members:", error);

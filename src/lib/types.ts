@@ -102,6 +102,7 @@ export interface Lead {
   requirement: string;
   notes?: string;
   organizationId: string;
+  rawExcelData?: Record<string, any>;
   aiTemperature?: "cold" | "warm" | "hot" | null;
   aiIntent?: string | null;
   aiPriority?: number | null;
@@ -191,14 +192,21 @@ export interface Project {
 export interface Task {
   id: string;
   title: string;
-  client: string;
-  project: string;
-  assignedTo: string;
-  assignedToName: string;
-  priority: Priority;
-  dueDate: string;
+  description?: string;
+  notes?: string;
+  client?: string;
+  project?: string;
+  assignedTo?: string;
+  assignedToName?: string;
+  priority?: Priority;
+  startDate?: string;
+  dueDate?: string;
   status: TaskStatus;
   organizationId: string;
+  createdBy?: string;
+  createdByName?: string;
+  createdByRole?: string;
+  createdAt?: string;
 }
 
 export interface Proposal {

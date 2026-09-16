@@ -21,6 +21,7 @@ export interface ILead extends Document {
   lastActivity: Date;
   organizationId: string;
   createdBy: string;
+  rawExcelData?: Record<string, any>;
   aiTemperature: "cold" | "warm" | "hot" | null;
   aiIntent: string | null;
   aiPriority: number | null;
@@ -60,6 +61,7 @@ const LeadSchema = new Schema<ILead>(
     lastActivity: { type: Date, default: Date.now },
     organizationId: { type: String, required: true, index: true },
     createdBy: { type: String, default: "" },
+    rawExcelData: { type: Schema.Types.Mixed, default: {} },
     // AI analysis fields
     aiTemperature: { type: String, enum: ["cold", "warm", "hot", null], default: null },
     aiIntent: { type: String, default: null },

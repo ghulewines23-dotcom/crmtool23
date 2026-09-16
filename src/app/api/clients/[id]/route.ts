@@ -99,6 +99,14 @@ export async function DELETE(
   const auth = await requireAuth(request);
   if ("error" in auth) return auth.error;
 
+  // Only SERENE_OWNER can delete clients
+  if (auth.user.role !== "SERENE_OWNER") {
+    return Response.json(
+      { success: false, error: "Only the owner can delete clients" },
+      { status: 403 }
+    );
+  }
+
   try {
     await connectDB();
     const { id } = await params;

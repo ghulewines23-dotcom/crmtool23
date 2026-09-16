@@ -5,6 +5,8 @@ import Organization from "@/models/Organization";
 import Subscription from "@/models/Subscription";
 import { getSessionFromRequest } from "@/lib/auth";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(request: NextRequest) {
   const session = await getSessionFromRequest(request);
   if (!session) {
@@ -112,6 +114,8 @@ export async function GET(request: NextRequest) {
             currentPeriodEnd: (subscription as { currentPeriodEnd: Date }).currentPeriodEnd,
           }
         : null,
+    }, {
+      headers: { "Cache-Control": "no-store, no-cache, must-revalidate" },
     });
   } catch (error) {
     console.error("Session fetch error:", error);

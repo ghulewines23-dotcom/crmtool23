@@ -9,12 +9,12 @@ import {
   LayoutDashboard,
   Users,
   UserCheck,
-  Settings,
   ChevronLeft,
   ChevronRight,
   LogOut,
   FileSpreadsheet,
-  Trash2,
+  ClipboardList,
+  Shield,
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import type { UserRole } from "@/lib/types";
@@ -38,36 +38,23 @@ const navSections: NavSection[] = [
   {
     title: "Main",
     items: [
-      { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, roles: ALL_ROLES },
+      { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, roles: ADMIN_ROLES },
       { label: "Leads", href: "/leads", icon: Users, roles: ALL_ROLES },
+      { label: "Tasks", href: "/tasks", icon: ClipboardList, roles: ADMIN_ROLES },
     ],
   },
   {
     title: "Business",
     items: [
-      { label: "Clients", href: "/clients", icon: UserCheck, roles: ADMIN_ROLES },
       { label: "Team", href: "/team", icon: Users, roles: ADMIN_ROLES },
+      { label: "Clients", href: "/clients", icon: UserCheck, roles: ADMIN_ROLES },
       { label: "Import Leads", href: "/import-export", icon: FileSpreadsheet, roles: ADMIN_ROLES },
     ],
   },
   {
-    title: "System",
+    title: "Owner",
     items: [
-      { label: "Settings", href: "/settings", icon: Settings, roles: ADMIN_ROLES },
-    ],
-  },
-  {
-    title: "Admin Panel",
-    items: [
-      { label: "Manage Leads", href: "/admin/leads", icon: Trash2, roles: ADMIN_ROLES },
-      { label: "Manage Clients", href: "/admin/clients", icon: UserCheck, roles: ADMIN_ROLES },
-      { label: "Manage Team", href: "/admin/team", icon: Users, roles: ADMIN_ROLES },
-    ],
-  },
-  {
-    title: "Serene CRM",
-    items: [
-      { label: "Serene Owner Panel", href: "/platform", icon: Settings, roles: ["SERENE_OWNER"] },
+      { label: "Owner Panel", href: "/platform", icon: Shield, roles: ["SERENE_OWNER"] },
     ],
   },
 ];
@@ -132,9 +119,6 @@ export function Sidebar({ collapsed, onToggle, className }: SidebarProps) {
         <div className="border-b border-border px-4 py-3">
           <p className="truncate text-sm font-medium text-foreground">
             {organization?.name || "Your Organization"}
-          </p>
-          <p className="mt-0.5 text-xs text-muted-foreground capitalize">
-            {subscription?.plan || "Free"} plan
           </p>
         </div>
       )}

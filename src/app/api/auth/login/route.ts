@@ -32,9 +32,9 @@ export async function POST(request: NextRequest) {
     const rlKey = `login:${ip}:${email}`;
     const rl = checkRateLimit(rlKey);
     if (!rl.allowed) {
-      const minutes = Math.ceil(rl.retryAfterMs / 60000);
+      const seconds = Math.ceil(rl.retryAfterMs / 1000);
       return jsonError(
-        `Too many login attempts. Try again in ${minutes} minute${minutes > 1 ? "s" : ""}.`,
+        `Too many login attempts. Try again in ${seconds} second${seconds > 1 ? "s" : ""}.`,
         429
       );
     }

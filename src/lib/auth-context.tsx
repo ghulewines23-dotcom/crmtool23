@@ -166,7 +166,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // ── Session check on mount — source of truth for auth state ──
   const refreshSession = useCallback(async () => {
     try {
-      const res = await fetch("/api/auth/session", { credentials: "same-origin" });
+      const res = await fetch("/api/auth/session", { credentials: "same-origin", cache: "no-store" });
       const data = await res.json();
       if (data.success && data.user) {
         setState(mapSessionResponse(data));
@@ -188,7 +188,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch("/api/auth/session", { credentials: "same-origin" });
+        const res = await fetch("/api/auth/session", { credentials: "same-origin", cache: "no-store" });
         const data = await res.json();
         if (cancelled) return;
         if (data.success && data.user) {

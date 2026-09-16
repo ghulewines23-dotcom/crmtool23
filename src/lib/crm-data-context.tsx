@@ -7,6 +7,7 @@ import React, {
   useCallback,
   useEffect,
 } from "react";
+import { useAuth } from "@/lib/auth-context";
 import type {
   Lead,
   Client,
@@ -61,12 +62,16 @@ interface CRMDataContextType extends CRMDataState {
   addTeamMembers: (newMembers: TeamMember[]) => void;
   updateTeamMember: (id: string, data: Partial<TeamMember>) => void;
   deleteTeamMember: (id: string) => void;
-  addTasks: (newTasks: Task[]) => void;
+  fetchTasks: () => Promise<void>;
+  addTask: (task: Omit<Task, "id" | "organizationId" | "createdAt">) => Promise<Task | null>;
+  updateTask: (id: string, data: Partial<Task>) => Promise<void>;
+  deleteTask: (id: string) => Promise<void>;
   addProjects: (newProjects: Project[]) => void;
   addInvoices: (newInvoices: Invoice[]) => void;
   addImportHistory: (history: ImportHistory) => void;
   updateLead: (id: string, data: Partial<Lead>) => void;
   deleteLead: (id: string) => void;
+  bulkDeleteLeads: (ids: string[]) => Promise<number>;
   getLeadById: (id: string) => Lead | undefined;
   fetchTeamMembers: () => Promise<void>;
 }
@@ -80,6 +85,7 @@ function getAuthHeaders(): Record<string, string> {
 }
 
 export function CRMDataProvider({ children }: { children: React.ReactNode }) {
+  const { isLoading, isAuthenticated } = useAuth();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -99,6 +105,7 @@ export function CRMDataProvider({ children }: { children: React.ReactNode }) {
     try {
       const response = await fetch("/api/clients", {
         headers: getAuthHeaders(),
+        cache: "no-store",
       });
       const data = await response.json();
       if (data.success) {
@@ -206,6 +213,7 @@ export function CRMDataProvider({ children }: { children: React.ReactNode }) {
     try {
       const response = await fetch("/api/team", {
         headers: getAuthHeaders(),
+        cache: "no-store",
       });
       const data = await response.json();
       if (data.success) {
@@ -219,20 +227,23 @@ export function CRMDataProvider({ children }: { children: React.ReactNode }) {
   // Fetch leads from API
   const fetchLeads = useCallback(async () => {
     try {
-      const response = await fetch("/api/leads", {
+      const response = await fetch("/api/leads?limit=1000", {
         headers: getAuthHeaders(),
+        cache: "no-store",
       });
       const data = await response.json();
-      if (data.success) {
+      if (data.success && Array.isArray(data.leads)) {
         setLeads(
-          data.leads.map((l: Lead & { _id: string }) => ({
+          data.leads.map((l: Lead & { _id?: string }) => ({
             ...l,
-            id: l._id,
+            id: String(l.id || l._id),
           }))
         );
+      } else {
+        console.warn("[fetchLeads] API returned:", data);
       }
     } catch (error) {
-      console.error("Error fetching leads:", error);
+      console.error("[fetchLeads] Error:", error);
     }
   }, []);
 
@@ -318,8 +329,89 @@ export function CRMDataProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const addTasks = useCallback((newTasks: Task[]) => {
-    setTasks((prev) => [...prev, ...newTasks]);
+  // Fetch tasks from API
+  const fetchTasks = useCallback(async () => {
+    try {
+      const response = await fetch("/api/tasks", {
+        cache: "no-store",
+      });
+      const data = await response.json();
+      if (data.success) {
+        setTasks(
+          data.tasks.map((t: Task & { _id: string }) => ({
+            ...t,
+            id: t._id,
+          }))
+        );
+      }
+    } catch (error) {
+      console.error("Error fetching tasks:", error);
+    }
+  }, []);
+
+  // Add task via API
+  const addTask = useCallback(
+    async (
+      taskData: Omit<Task, "id" | "organizationId" | "createdAt">
+    ) => {
+      try {
+        const response = await fetch("/api/tasks", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(taskData),
+        });
+        const data = await response.json();
+        if (data.success) {
+          const newTask = { ...data.task, id: data.task._id };
+          setTasks((prev) => [newTask, ...prev]);
+          return newTask;
+        }
+        return null;
+      } catch (error) {
+        console.error("Error adding task:", error);
+        return null;
+      }
+    },
+    []
+  );
+
+  // Update task via API
+  const updateTask = useCallback(
+    async (id: string, data: Partial<Task>) => {
+      try {
+        const response = await fetch(`/api/tasks/${id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        });
+        const result = await response.json();
+        if (result.success) {
+          setTasks((prev) =>
+            prev.map((t) =>
+              t.id === id ? { ...t, ...result.task, id: result.task._id } : t
+            )
+          );
+        }
+      } catch (error) {
+        console.error("Error updating task:", error);
+      }
+    },
+    []
+  );
+
+  // Delete task via API
+  const deleteTask = useCallback(async (id: string) => {
+    try {
+      const response = await fetch(`/api/tasks/${id}`, {
+        method: "DELETE",
+      });
+      const data = await response.json();
+      if (data.success) {
+        setTasks((prev) => prev.filter((t) => t.id !== id));
+      }
+    } catch (error) {
+      console.error("Error deleting task:", error);
+    }
   }, []);
 
   const addProjects = useCallback((newProjects: Project[]) => {
@@ -372,17 +464,38 @@ export function CRMDataProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const bulkDeleteLeads = useCallback(async (ids: string[]) => {
+    try {
+      const response = await fetch("/api/leads/bulk-delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        setLeads((prev) => prev.filter((lead) => !ids.includes(lead.id)));
+        return data.deleted as number;
+      }
+      return 0;
+    } catch (error) {
+      console.error("Error bulk deleting leads:", error);
+      return 0;
+    }
+  }, []);
+
   const getLeadById = useCallback(
     (id: string) => leads.find((lead) => lead.id === id),
     [leads]
   );
 
-  // Fetch all data on mount
+  // Fetch all data on mount — wait for auth to be ready first
   useEffect(() => {
+    if (isLoading || !isAuthenticated) return;
     fetchClients();
     fetchTeamMembers();
     fetchLeads();
-  }, [fetchClients, fetchTeamMembers, fetchLeads]);
+    fetchTasks();
+  }, [isLoading, isAuthenticated, fetchClients, fetchTeamMembers, fetchLeads, fetchTasks]);
 
   return (
     <CRMDataContext.Provider
@@ -410,12 +523,16 @@ export function CRMDataProvider({ children }: { children: React.ReactNode }) {
         addTeamMembers,
         updateTeamMember,
         deleteTeamMember,
-        addTasks,
+        fetchTasks,
+        addTask,
+        updateTask,
+        deleteTask,
         addProjects,
         addInvoices,
         addImportHistory,
         updateLead,
         deleteLead,
+        bulkDeleteLeads,
         getLeadById,
         fetchTeamMembers,
       }}

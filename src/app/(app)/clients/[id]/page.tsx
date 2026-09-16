@@ -54,6 +54,7 @@ export default function ClientDetailPage() {
 
   const canEditCore = hasRole("FOUNDER", "ADMIN");
   const canEditPayment = hasRole("FOUNDER", "ADMIN");
+  const canEdit = hasRole("FOUNDER", "ADMIN", "SALES_PERSON");
 
   const [form, setForm] = useState({
     name: "",
@@ -185,7 +186,7 @@ export default function ClientDetailPage() {
             </div>
           </div>
         </div>
-        {(canEditCore || canEditPayment) && (
+        {canEdit && (
           <Button
             variant="outline"
             className="h-9 rounded-md self-start"

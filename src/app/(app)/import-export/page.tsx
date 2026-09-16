@@ -10,7 +10,6 @@ import {
   CheckCircle2,
   Copy,
   Loader2,
-  Brain,
   RefreshCw,
   ChevronDown,
   ChevronUp,
@@ -52,28 +51,18 @@ interface ImportJob {
   detectedHeaderRow?: number;
 }
 
-interface AIJob {
-  id: string;
-  status: string;
-  total: number;
-  processed: number;
-  analyzed: number;
-  failed: number;
-}
-
-type ViewState = "upload" | "preview" | "importing" | "completed" | "ai-analysis";
+type ViewState = "upload" | "preview" | "importing" | "completed";
 
 function getAuthHeaders(): Record<string, string> {
   return {};
 }
 
 export default function ImportLeadsPage() {
-  const { fetchLeads } = useCRMData();
+  const { fetchLeads, addLeads } = useCRMData();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [viewState, setViewState] = useState<ViewState>("upload");
   const [job, setJob] = useState<ImportJob | null>(null);
-  const [aiJob, setAiJob] = useState<AIJob | null>(null);
   const [uploading, setUploading] = useState(false);
   const [importing, setImporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -92,6 +81,7 @@ export default function ImportLeadsPage() {
         method: "POST",
         headers: getAuthHeaders(),
         body: formData,
+        cache: "no-store",
       });
 
       const data = await response.json();
@@ -157,6 +147,7 @@ export default function ImportLeadsPage() {
           requirement: row.requirement,
           location: row.location,
           notes: row.notes,
+          rawExcelData: (row as any).rawExcelData || row,
         }));
 
       console.log(`[IMPORT UI] Sending ${validRows.length} valid rows to confirm`);
@@ -165,6 +156,7 @@ export default function ImportLeadsPage() {
         method: "POST",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({ rows: validRows }),
+        cache: "no-store",
       });
 
       const data = await response.json();
@@ -183,7 +175,12 @@ export default function ImportLeadsPage() {
       setJob(updatedJob);
       setViewState("completed");
 
-      // Re-fetch leads from DB to show the newly imported records
+      // Add imported leads directly to state (more reliable than re-fetch)
+      if (data.insertedLeads && Array.isArray(data.insertedLeads)) {
+        addLeads(data.insertedLeads);
+      }
+
+      // Also re-fetch to ensure consistency
       await fetchLeads();
     } catch (err) {
       console.error(`[IMPORT UI] Error:`, err);
@@ -194,60 +191,9 @@ export default function ImportLeadsPage() {
     }
   }, [job, fetchLeads]);
 
-  const handleStartAIAnalysis = useCallback(async () => {
-    setError(null);
-
-    try {
-      const headers = { "Content-Type": "application/json", ...getAuthHeaders() };
-      const response = await fetch("/api/leads/ai-analyze", {
-        method: "POST",
-        headers,
-      });
-
-      const data = await response.json();
-      if (!data.success) throw new Error(data.error || "AI analysis failed to start");
-
-      setAiJob({
-        id: data.jobId,
-        status: "processing",
-        total: data.totalLeads,
-        processed: 0,
-        analyzed: 0,
-        failed: 0,
-      });
-      setViewState("ai-analysis");
-      pollAIStatus(data.jobId, headers);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "AI analysis failed");
-    }
-  }, []);
-
-  const pollAIStatus = useCallback(
-    async (jobId: string, headers: Record<string, string>) => {
-      const interval = setInterval(async () => {
-        try {
-          const response = await fetch(`/api/leads/ai-analyze?jobId=${jobId}`, { headers });
-          const data = await response.json();
-          if (data.success && data.job) {
-            setAiJob(data.job);
-            if (data.job.status === "completed" || data.job.status === "failed") {
-              clearInterval(interval);
-              fetchLeads();
-            }
-          }
-        } catch {
-          // Keep polling
-        }
-      }, 3000);
-      setTimeout(() => clearInterval(interval), 300000);
-    },
-    [fetchLeads]
-  );
-
   const handleReset = useCallback(() => {
     setViewState("upload");
     setJob(null);
-    setAiJob(null);
     setError(null);
     setShowAllRows(false);
   }, []);
@@ -592,91 +538,6 @@ export default function ImportLeadsPage() {
               <p className="text-[11px] font-medium text-red-600 uppercase tracking-wide">Invalid Skipped</p>
               <p className="mt-1 text-[20px] font-semibold text-red-700">{job.invalidRows}</p>
             </div>
-          </div>
-
-          {/* AI Analysis Option */}
-          <div className="rounded-lg border border-border bg-white p-6">
-            <div className="flex items-start gap-4">
-              <div className="rounded-lg bg-primary/10 p-3">
-                <Brain className="h-6 w-6 text-primary" />
-              </div>
-              <div className="flex-1">
-                <h3 className="text-[15px] font-semibold">AI Lead Analysis</h3>
-                <p className="text-[13px] text-muted-foreground mt-1">
-                  Analyze imported leads with AI to get temperature scores, intent detection,
-                  priority ranking, and recommended next actions.
-                </p>
-                <Button size="sm" className="mt-3 h-9 gap-1.5" onClick={handleStartAIAnalysis}>
-                  <Brain className="h-4 w-4" />
-                  Start AI Analysis
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* AI Analysis State */}
-      {viewState === "ai-analysis" && aiJob && (
-        <div className="space-y-6">
-          <div className="rounded-lg border border-border bg-white p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <Brain className="h-5 w-5 text-primary animate-pulse" />
-              <h3 className="text-[15px] font-semibold">AI Analysis in Progress</h3>
-            </div>
-
-            <div className="mb-4">
-              <div className="flex items-center justify-between text-[13px] mb-1.5">
-                <span className="text-muted-foreground">
-                  {aiJob.total > 0 ? Math.round((aiJob.processed / aiJob.total) * 100) : 0}% complete
-                </span>
-                <span className="text-muted-foreground">
-                  {aiJob.processed} / {aiJob.total}
-                </span>
-              </div>
-              <div className="h-2 rounded-full bg-muted overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-primary transition-all duration-500"
-                  style={{ width: `${aiJob.total > 0 ? (aiJob.processed / aiJob.total) * 100 : 0}%` }}
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-4 text-center">
-              <div>
-                <p className="text-[20px] font-semibold text-emerald-600">{aiJob.analyzed}</p>
-                <p className="text-[11px] text-muted-foreground uppercase">Analyzed</p>
-              </div>
-              <div>
-                <p className="text-[20px] font-semibold text-red-600">{aiJob.failed}</p>
-                <p className="text-[11px] text-muted-foreground uppercase">Failed</p>
-              </div>
-              <div>
-                <p className="text-[20px] font-semibold text-muted-foreground">
-                  {aiJob.total - aiJob.processed}
-                </p>
-                <p className="text-[11px] text-muted-foreground uppercase">Remaining</p>
-              </div>
-            </div>
-
-            {aiJob.status === "completed" && (
-              <div className="mt-4 rounded-lg bg-emerald-50 border border-emerald-200 p-3 text-center">
-                <p className="text-[13px] text-emerald-700 font-medium">
-                  AI Analysis Complete! {aiJob.analyzed} leads analyzed.
-                </p>
-                <Button variant="outline" size="sm" className="mt-2 h-8" onClick={() => setViewState("upload")}>
-                  Done
-                </Button>
-              </div>
-            )}
-
-            {aiJob.status === "failed" && (
-              <div className="mt-4 rounded-lg bg-red-50 border border-red-200 p-3 text-center">
-                <p className="text-[13px] text-red-700 font-medium">
-                  AI Analysis Failed. Some leads could not be analyzed.
-                </p>
-              </div>
-            )}
           </div>
         </div>
       )}

@@ -17,7 +17,7 @@ export async function checkDuplicate(
   // Check by phone first (most reliable)
   if (lead.phone && lead.phone.trim() !== "") {
     const existingByPhone = await Lead.findOne({
-      phone: lead.phone,
+      phone: lead.phone.trim(),
       organizationId,
     }).select("_id").lean();
 
@@ -33,7 +33,7 @@ export async function checkDuplicate(
   // Check by email if phone is not duplicate
   if (lead.email && lead.email.trim() !== "") {
     const existingByEmail = await Lead.findOne({
-      email: lead.email,
+      email: lead.email.trim().toLowerCase(),
       organizationId,
     }).select("_id").lean();
 
@@ -60,18 +60,50 @@ export async function checkDuplicatesBatch(
   await connectDB();
   const results = new Map<number, DuplicateCheckResult>();
 
-  // Collect all phones and emails for batch lookup
-  const phones = leads
-    .map((l, i) => ({ phone: l.phone, index: i }))
-    .filter((l) => l.phone && l.phone.trim() !== "");
+  const seenPhonesInSheet = new Map<string, number>();
+  const seenEmailsInSheet = new Map<string, number>();
 
-  const emails = leads
-    .map((l, i) => ({ email: l.email, index: i }))
-    .filter((l) => l.email && l.email.trim() !== "");
+  // Step 1: Detect duplicate rows WITHIN the sheet itself
+  leads.forEach((l, i) => {
+    const cleanPhone = l.phone ? l.phone.trim() : "";
+    const cleanEmail = l.email ? l.email.trim().toLowerCase() : "";
 
-  // Batch query for phones
-  if (phones.length > 0) {
-    const phoneValues = phones.map((p) => p.phone);
+    if (cleanPhone) {
+      if (seenPhonesInSheet.has(cleanPhone)) {
+        results.set(i, {
+          isDuplicate: true,
+          duplicateType: "phone",
+          existingLeadId: null,
+        });
+      } else {
+        seenPhonesInSheet.set(cleanPhone, i);
+      }
+    }
+
+    if (cleanEmail && !results.has(i)) {
+      if (seenEmailsInSheet.has(cleanEmail)) {
+        results.set(i, {
+          isDuplicate: true,
+          duplicateType: "email",
+          existingLeadId: null,
+        });
+      } else {
+        seenEmailsInSheet.set(cleanEmail, i);
+      }
+    }
+  });
+
+  // Step 2: Check remaining non-duplicate leads against the MongoDB database
+  const phonesToCheck = leads
+    .map((l, i) => ({ phone: l.phone ? l.phone.trim() : "", index: i }))
+    .filter((l) => l.phone !== "" && !results.has(l.index));
+
+  const emailsToCheck = leads
+    .map((l, i) => ({ email: l.email ? l.email.trim().toLowerCase() : "", index: i }))
+    .filter((l) => l.email !== "" && !results.has(l.index));
+
+  if (phonesToCheck.length > 0) {
+    const phoneValues = Array.from(new Set(phonesToCheck.map((p) => p.phone)));
     const existingPhones = await Lead.find({
       phone: { $in: phoneValues },
       organizationId,
@@ -83,7 +115,7 @@ export async function checkDuplicatesBatch(
       existingPhones.map((p) => [p.phone, p._id.toString()])
     );
 
-    for (const { phone, index } of phones) {
+    for (const { phone, index } of phonesToCheck) {
       if (phoneMap.has(phone)) {
         results.set(index, {
           isDuplicate: true,
@@ -94,11 +126,14 @@ export async function checkDuplicatesBatch(
     }
   }
 
-  // Batch query for emails (only for non-phone duplicates)
-  if (emails.length > 0) {
-    const emailValues = emails
-      .filter(({ index }) => !results.has(index))
-      .map((e) => e.email);
+  if (emailsToCheck.length > 0) {
+    const emailValues = Array.from(
+      new Set(
+        emailsToCheck
+          .filter(({ index }) => !results.has(index))
+          .map((e) => e.email)
+      )
+    );
 
     if (emailValues.length > 0) {
       const existingEmails = await Lead.find({
@@ -112,7 +147,7 @@ export async function checkDuplicatesBatch(
         existingEmails.map((e) => [e.email, e._id.toString()])
       );
 
-      for (const { email, index } of emails) {
+      for (const { email, index } of emailsToCheck) {
         if (!results.has(index) && emailMap.has(email)) {
           results.set(index, {
             isDuplicate: true,

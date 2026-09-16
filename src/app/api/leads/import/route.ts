@@ -10,6 +10,8 @@ import { normalizeLead } from "@/lib/import/normalizer";
 import { checkDuplicatesBatch } from "@/lib/import/duplicate-checker";
 import { PLAN_LIMITS } from "@/lib/auth-helpers";
 
+export const dynamic = "force-dynamic";
+
 function jsonError(message: string, status: number, details?: Record<string, unknown>) {
   return Response.json({ success: false, error: message, ...details }, { status });
 }
@@ -23,12 +25,26 @@ export async function POST(request: NextRequest) {
   const auth = await requireAuth(request);
   if ("error" in auth) return auth.error;
 
+  // SERENE_OWNER must pass organizationId in body (cross-org)
+  let orgId = auth.user.organizationId;
   if (auth.user.role === "SERENE_OWNER") {
-    return jsonError("Use the platform API for cross-org access", 403);
+    const cloned = request.clone();
+    try {
+      const jsonBody = await cloned.json().catch(() => null);
+      if (jsonBody?.organizationId) {
+        orgId = jsonBody.organizationId;
+      }
+    } catch { /* ignore */ }
+    // If we get a FormData (file upload), we can't read orgId from it directly.
+    // Fall back: accept it from a query param or header.
+    if (!orgId) {
+      const { searchParams } = new URL(request.url);
+      orgId = searchParams.get("organizationId") || "";
+    }
   }
 
-  if (!auth.user.organizationId) {
-    return jsonError("Organization not found for current user", 400);
+  if (!orgId) {
+    return jsonError("Organization not found. Please select an organization.", 400);
   }
 
   try {
@@ -59,9 +75,6 @@ export async function POST(request: NextRequest) {
     const { mapping, unmappedHeaders } = mapColumns(parsed.headers);
     const mappedRows = parsed.rows.map((row) => mapRowToCanonical(row as Record<string, string | number | boolean | null>, mapping));
 
-    // Normalize and validate
-    const orgId = auth.user.organizationId;
-
     // Check subscription for capacity
     const subscription = await Subscription.findOne({ organizationId: orgId });
     const maxLeads = subscription ? subscription.maxLeads : PLAN_LIMITS.FREE_TRIAL.maxLeads;
@@ -87,6 +100,7 @@ export async function POST(request: NextRequest) {
         requirement: normalized.requirement,
         location: normalized.location,
         notes: normalized.notes,
+        rawExcelData: parsed.rows[i],
         isValid: validation.isValid,
         isDuplicate: dupResult?.isDuplicate ?? false,
         duplicateType: dupResult?.duplicateType ?? null,

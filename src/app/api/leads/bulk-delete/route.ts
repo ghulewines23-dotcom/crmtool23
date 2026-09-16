@@ -4,7 +4,7 @@ import Lead from "@/models/Lead";
 import { requireRole } from "@/lib/api-auth";
 
 export async function POST(request: NextRequest) {
-  const auth = await requireRole(request, "FOUNDER", "ADMIN");
+  const auth = await requireRole(request, "FOUNDER", "ADMIN", "SERENE_OWNER");
   if ("error" in auth) return auth.error;
 
   try {
@@ -19,10 +19,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const result = await Lead.deleteMany({
+    console.log(`[BULK DELETE /api/leads] user=${auth.user.id} role=${auth.user.role} orgId=${auth.user.organizationId} requestCount=${ids.length}`);
+
+    // SERENE_OWNER can delete across orgs, others scoped to their org
+    const deleteQuery: Record<string, unknown> = {
       _id: { $in: ids },
-      organizationId: auth.user.organizationId,
-    });
+    };
+    if (auth.user.role !== "SERENE_OWNER") {
+      deleteQuery.organizationId = auth.user.organizationId;
+    }
+
+    const result = await Lead.deleteMany(deleteQuery);
+    console.log(`[BULK DELETE /api/leads] Deleted count=${result.deletedCount}`);
 
     return Response.json({ success: true, deleted: result.deletedCount });
   } catch (error) {

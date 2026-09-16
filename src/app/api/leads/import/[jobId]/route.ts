@@ -4,6 +4,8 @@ import { connectDB } from "@/lib/db/connect";
 import Lead from "@/models/Lead";
 import TeamMember from "@/models/TeamMember";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ jobId: string }> }
@@ -57,8 +59,23 @@ export async function POST(
     await connectDB();
     console.log(`[IMPORT CONFIRM] DB connected`);
 
-    const organizationId = auth.user.organizationId;
+    // SERENE_OWNER must pass organizationId in body
+    let organizationId = auth.user.organizationId;
+    if (auth.user.role === "SERENE_OWNER") {
+      organizationId = body.organizationId || organizationId;
+    }
+
+    if (!organizationId) {
+      console.error(`[IMPORT CONFIRM] No organizationId! user=${auth.user.id} role=${auth.user.role} orgField=${auth.user.organizationId}`);
+      return Response.json(
+        { success: false, error: "No organization associated with your account" },
+        { status: 400 }
+      );
+    }
+
     const createdBy = auth.user.id;
+
+    console.log(`[IMPORT CONFIRM] organizationId=${organizationId} createdBy=${createdBy}`);
 
     // Count before
     const countBefore = await Lead.countDocuments({ organizationId });
@@ -67,7 +84,7 @@ export async function POST(
     // Fetch active sales agents for round-robin
     const salesAgents = await TeamMember.find({
       organizationId,
-      role: { $in: ["sales_agent", "manager"] },
+      role: "SALES_PERSON",
       status: "active",
     })
       .select("_id name")
@@ -75,11 +92,46 @@ export async function POST(
 
     console.log(`[IMPORT CONFIRM] Active sales agents: ${salesAgents.length}`);
 
-    const documents = rows.map((row, index) => {
+    // Pre-insert safety check: filter out duplicates within batch & against database
+    const incomingPhones = rows.map((r) => (r.phone || "").trim()).filter(Boolean);
+    const incomingEmails = rows.map((r) => (r.email || "").trim().toLowerCase()).filter(Boolean);
+
+    const existingPhonesList = incomingPhones.length > 0
+      ? await Lead.find({ organizationId, phone: { $in: incomingPhones } }).select("phone").lean()
+      : [];
+    const existingEmailsList = incomingEmails.length > 0
+      ? await Lead.find({ organizationId, email: { $in: incomingEmails } }).select("email").lean()
+      : [];
+
+    const existingPhones = new Set(existingPhonesList.map((l) => l.phone));
+    const existingEmails = new Set(existingEmailsList.map((l) => l.email));
+
+    const seenPhonesInBatch = new Set<string>();
+    const seenEmailsInBatch = new Set<string>();
+
+    const uniqueRows = rows.filter((row) => {
+      const phone = (row.phone || "").trim();
+      const email = (row.email || "").trim().toLowerCase();
+
+      if (phone) {
+        if (existingPhones.has(phone) || seenPhonesInBatch.has(phone)) return false;
+        seenPhonesInBatch.add(phone);
+      }
+      if (email) {
+        if (existingEmails.has(email) || seenEmailsInBatch.has(email)) return false;
+        seenEmailsInBatch.add(email);
+      }
+      return true;
+    });
+
+    console.log(`[IMPORT CONFIRM] Deduplicated rows: ${uniqueRows.length} unique out of ${rows.length} received`);
+
+    const documents = uniqueRows.map((row, index) => {
       let assignedTo = "";
       let assignedToName = "";
 
       if (salesAgents.length > 0) {
+        // Round-robin: lead 0 → agent 0, lead 1 → agent 1, lead 2 → agent 0, etc.
         const agent = salesAgents[index % salesAgents.length];
         assignedTo = String(agent._id);
         assignedToName = agent.name;
@@ -87,20 +139,21 @@ export async function POST(
 
       return {
         name: row.name || "",
-        phone: row.phone,
+        phone: row.phone || "",
         email: row.email || "",
-        company: row.company,
+        company: row.company || "Unknown",
         source: row.source || "",
         sourceUrl: row.sourceUrl || "",
-        requirement: row.requirement,
+        requirement: (row.requirement || "").trim() || (row.name || "").trim() || (row.company || "").trim() || "Imported Lead",
         notes: row.notes || "",
         location: row.location || "",
-        status: "new" as const,
+        status: "not_connected" as const,
         priority: "medium" as const,
         assignedTo,
         assignedToName,
         organizationId,
         createdBy,
+        rawExcelData: (row as any).rawExcelData || row,
       };
     });
 
@@ -142,6 +195,10 @@ export async function POST(
 
     const importedCount = countAfter - countBefore;
     const insertedIds = insertedDocs.map((d: any) => String(d._id));
+    const insertedLeads = insertedDocs.map((d: any) => ({
+      ...((typeof d.toObject === "function" ? d.toObject() : d) as Record<string, unknown>),
+      id: String((d as any)._id),
+    }));
 
     console.log(`[IMPORT CONFIRM] Inserted IDs:`, insertedIds);
     console.log(`[IMPORT CONFIRM] === DONE === imported: ${importedCount}`);
@@ -150,6 +207,7 @@ export async function POST(
       success: true,
       imported: importedCount,
       insertedIds,
+      insertedLeads,
       duplicates: 0,
       invalid: 0,
       errors: [],

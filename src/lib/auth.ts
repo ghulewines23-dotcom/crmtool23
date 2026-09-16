@@ -116,7 +116,7 @@ export async function getSessionFromRequest(
 
 const loginAttempts = new Map<string, { count: number; resetAt: number }>();
 const MAX_ATTEMPTS = 5;
-const WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+const WINDOW_MS = 10 * 1000; // 10 seconds
 
 export function checkRateLimit(key: string): {
   allowed: boolean;

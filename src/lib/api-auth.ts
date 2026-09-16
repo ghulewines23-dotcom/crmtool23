@@ -23,7 +23,10 @@ export interface ApiUser {
  */
 export async function getApiUser(request: NextRequest): Promise<ApiUser | null> {
   const session = await getSessionFromRequest(request);
-  if (!session) return null;
+  if (!session) {
+    console.warn("[getApiUser] No session found in request cookies");
+    return null;
+  }
 
   await connectDB();
 
@@ -31,10 +34,18 @@ export async function getApiUser(request: NextRequest): Promise<ApiUser | null> 
     .select("name email role organizationId status activeSessionId")
     .lean();
 
-  if (!user || user.status !== "active") return null;
+  if (!user) {
+    console.warn(`[getApiUser] User not found: ${session.userId}`);
+    return null;
+  }
+  if (user.status !== "active") {
+    console.warn(`[getApiUser] User not active: ${session.userId} status=${user.status}`);
+    return null;
+  }
 
   // Single device enforcement: reject if session ID doesn't match active session
   if (user.activeSessionId && user.activeSessionId !== session.sessionId) {
+    console.warn(`[getApiUser] Session mismatch: user=${session.userId} stored=${user.activeSessionId} request=${session.sessionId}`);
     return null;
   }
 
@@ -43,7 +54,7 @@ export async function getApiUser(request: NextRequest): Promise<ApiUser | null> 
     name: user.name,
     email: user.email,
     role: user.role,
-    organizationId: user.organizationId,
+    organizationId: user.organizationId || "",
     status: user.status,
   };
 }

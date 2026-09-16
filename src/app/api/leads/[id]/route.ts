@@ -3,16 +3,14 @@ import { connectDB } from "@/lib/db/connect";
 import Lead from "@/models/Lead";
 import { requireAuth } from "@/lib/api-auth";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const auth = await requireAuth(request);
   if ("error" in auth) return auth.error;
-
-  if (auth.user.role === "SERENE_OWNER") {
-    return Response.json({ success: false, error: "Forbidden" }, { status: 403 });
-  }
 
   try {
     await connectDB();
@@ -37,7 +35,9 @@ export async function GET(
       );
     }
 
-    return Response.json({ success: true, lead: { ...lead, id: lead._id } });
+    return Response.json({ success: true, lead: { ...lead, id: lead._id } }, {
+      headers: { "Cache-Control": "no-store, no-cache, must-revalidate" },
+    });
   } catch (error) {
     console.error("Error fetching lead:", error);
     return Response.json(
@@ -54,16 +54,42 @@ export async function PUT(
   const auth = await requireAuth(request);
   if ("error" in auth) return auth.error;
 
-  if (auth.user.role === "SERENE_OWNER") {
-    return Response.json({ success: false, error: "Forbidden" }, { status: 403 });
-  }
-
-  // ADMIN is read-only on leads
+  // ADMIN can update status and basic fields
   if (auth.user.role === "ADMIN") {
-    return Response.json(
-      { success: false, error: "Admins have read-only access to leads" },
-      { status: 403 }
-    );
+    try {
+      await connectDB();
+      const { id } = await params;
+      const body = await request.json();
+
+      const allowedUpdate: Record<string, unknown> = {};
+      if (body.status !== undefined) allowedUpdate.status = body.status;
+      if (body.notes !== undefined) allowedUpdate.notes = body.notes;
+      if (body.priority !== undefined) allowedUpdate.priority = body.priority;
+      if (body.nextFollowup !== undefined) allowedUpdate.nextFollowup = body.nextFollowup;
+      if (body.value !== undefined) allowedUpdate.value = body.value;
+      allowedUpdate.lastActivity = new Date();
+
+      const lead = await Lead.findOneAndUpdate(
+        { _id: id, organizationId: auth.user.organizationId },
+        allowedUpdate,
+        { new: true }
+      ).lean();
+
+      if (!lead) {
+        return Response.json(
+          { success: false, error: "Lead not found" },
+          { status: 404 }
+        );
+      }
+
+      return Response.json({ success: true, lead: { ...lead, id: lead._id } });
+    } catch (error) {
+      console.error("Error updating lead:", error);
+      return Response.json(
+        { success: false, error: "Failed to update lead" },
+        { status: 500 }
+      );
+    }
   }
 
   try {
@@ -145,8 +171,8 @@ export async function DELETE(
   const auth = await requireAuth(request);
   if ("error" in auth) return auth.error;
 
-  // Only FOUNDER can delete leads
-  if (auth.user.role !== "FOUNDER") {
+  // FOUNDER, ADMIN, and SERENE_OWNER can delete leads
+  if (!["FOUNDER", "ADMIN", "SERENE_OWNER"].includes(auth.user.role)) {
     return Response.json(
       { success: false, error: "Only organization owners can delete leads" },
       { status: 403 }
@@ -157,18 +183,26 @@ export async function DELETE(
     await connectDB();
     const { id } = await params;
 
-    const lead = await Lead.findOneAndDelete({
+    console.log(`[DELETE /api/leads/${id}] user=${auth.user.id} role=${auth.user.role} orgId=${auth.user.organizationId}`);
+
+    const deleteQuery: Record<string, unknown> = {
       _id: id,
-      organizationId: auth.user.organizationId,
-    });
+    };
+    if (auth.user.role !== "SERENE_OWNER") {
+      deleteQuery.organizationId = auth.user.organizationId;
+    }
+
+    const lead = await Lead.findOneAndDelete(deleteQuery);
 
     if (!lead) {
+      console.warn(`[DELETE /api/leads/${id}] Lead not found with query:`, deleteQuery);
       return Response.json(
         { success: false, error: "Lead not found" },
         { status: 404 }
       );
     }
 
+    console.log(`[DELETE /api/leads/${id}] Successfully deleted lead:`, id);
     return Response.json({ success: true });
   } catch (error) {
     console.error("Error deleting lead:", error);

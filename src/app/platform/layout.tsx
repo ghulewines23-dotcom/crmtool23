@@ -5,37 +5,16 @@ import { useRouter, usePathname } from "next/navigation"
 import Link from "next/link"
 import { useAuth } from "@/lib/auth-context"
 import {
-  LayoutDashboard,
-  Users,
   Shield,
   ScrollText,
   Settings,
   LogOut,
   Menu,
   X,
-  Phone,
-  FileText,
-  ClipboardList,
-  Briefcase,
-  CreditCard,
-  Upload,
 } from "lucide-react"
-
-const CRM_NAV = [
-  { href: "/platform/overview", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/platform/leads", label: "Leads", icon: Phone },
-  { href: "/platform/clients", label: "Clients", icon: Users },
-  { href: "/platform/tasks", label: "Tasks", icon: ClipboardList },
-  { href: "/platform/projects", label: "Projects", icon: Briefcase },
-  { href: "/platform/invoices", label: "Invoices", icon: FileText },
-  { href: "/platform/team", label: "Team", icon: Users },
-  { href: "/platform/import", label: "Import", icon: Upload },
-  { href: "/platform/payments", label: "Payments", icon: CreditCard },
-]
 
 const ADMIN_NAV = [
   { href: "/platform/users", label: "Manage Users", icon: Shield },
-  { href: "/platform/access", label: "Access Control", icon: Shield },
   { href: "/platform/audit-logs", label: "Audit Logs", icon: ScrollText },
   { href: "/platform/settings", label: "Settings", icon: Settings },
 ]
@@ -58,7 +37,11 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
     if (!isLoading && isAuthenticated && user && user.role !== "SERENE_OWNER") {
       router.replace("/dashboard")
     }
-  }, [isAuthenticated, isLoading, user, router, isPublic])
+    // Redirect base platform path to users page
+    if (!isLoading && isAuthenticated && user && user.role === "SERENE_OWNER" && pathname === "/platform") {
+      router.replace("/platform/users")
+    }
+  }, [isAuthenticated, isLoading, user, router, isPublic, pathname])
 
   if (isPublic) {
     return <>{children}</>
@@ -93,24 +76,6 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
 
           <nav className="flex-1 py-3">
             <div className="px-3 mb-1">
-              <span className="text-[10px] font-medium uppercase tracking-wider text-gray-600">CRM</span>
-            </div>
-            {CRM_NAV.map((item) => {
-              const isActive = pathname === item.href
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setSidebarOpen(false)}
-                  className={`flex items-center gap-2.5 mx-2 rounded-lg px-3 py-1.5 text-[13px] transition-colors ${isActive ? "bg-gray-800 text-white" : "text-gray-400 hover:bg-gray-800/50 hover:text-gray-200"}`}
-                >
-                  <item.icon className="h-3.5 w-3.5" />
-                  {item.label}
-                </Link>
-              )
-            })}
-
-            <div className="px-3 mt-4 mb-1">
               <span className="text-[10px] font-medium uppercase tracking-wider text-gray-600">Admin</span>
             </div>
             {ADMIN_NAV.map((item) => {
@@ -134,7 +99,7 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
               href="/dashboard"
               className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] text-gray-400 hover:bg-gray-800 hover:text-gray-200"
             >
-              <LayoutDashboard className="h-4 w-4" />
+              <Settings className="h-4 w-4" />
               User Dashboard
             </Link>
             <button

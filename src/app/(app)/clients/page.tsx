@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Plus, Search, ArrowRight } from "lucide-react";
 import { useCRMData } from "@/lib/crm-data-context";
+import { useAuth } from "@/lib/auth-context";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,11 +50,14 @@ type FormSection = "client" | "login" | "payment";
 
 export default function ClientsPage() {
   const { clients, addClient } = useCRMData();
+  const { hasRole } = useAuth();
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(emptyForm());
   const [activeSection, setActiveSection] = useState<FormSection>("client");
   const [saving, setSaving] = useState(false);
+
+  const canCreate = hasRole("SERENE_OWNER");
 
   const filtered = clients.filter(
     (c) =>
@@ -111,10 +115,12 @@ export default function ClientsPage() {
             {clients.length} total clients
           </p>
         </div>
-        <Button className="h-9 rounded-md" onClick={() => setOpen(true)}>
-          <Plus className="h-4 w-4" />
-          Add Client
-        </Button>
+        {canCreate && (
+          <Button className="h-9 rounded-md" onClick={() => setOpen(true)}>
+            <Plus className="h-4 w-4" />
+            Add Client
+          </Button>
+        )}
       </div>
 
       <div className="rounded-lg border border-border bg-white">

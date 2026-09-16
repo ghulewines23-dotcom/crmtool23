@@ -35,18 +35,9 @@ export default function LeadDetailPage() {
     if (!lead) return;
     setUpdatingStatus(true);
     try {
-      const userStr = localStorage.getItem("crm_user");
-      const userData = userStr ? JSON.parse(userStr) : {};
       const res = await fetch(`/api/leads/${lead.id}`, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          "x-user-id": userData.id || "",
-          "x-user-name": userData.name || "",
-          "x-user-email": userData.email || "",
-          "x-user-role": userData.role || "",
-          "x-org-id": userData.organizationId || "",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus }),
       });
       const data = await res.json();
@@ -106,18 +97,24 @@ export default function LeadDetailPage() {
           <p className="mt-0.5 text-[13px] text-muted-foreground">{lead.company}</p>
         </div>
         <div className="flex gap-2 flex-wrap shrink-0">
-          <Button variant="outline" size="sm" className="gap-1.5 h-8 text-[13px]">
-            <Phone className="h-3.5 w-3.5" />
-            Call
-          </Button>
-          <Button variant="outline" size="sm" className="gap-1.5 h-8 text-[13px]">
-            <MessageCircle className="h-3.5 w-3.5" />
-            WhatsApp
-          </Button>
-          <Button variant="outline" size="sm" className="gap-1.5 h-8 text-[13px]">
-            <Mail className="h-3.5 w-3.5" />
-            Email
-          </Button>
+          <a href={`tel:${lead.phone}`}>
+            <Button variant="outline" size="sm" className="gap-1.5 h-8 text-[13px]">
+              <Phone className="h-3.5 w-3.5" />
+              Call Now
+            </Button>
+          </a>
+          <a href={`https://wa.me/${lead.phone.replace(/[^0-9]/g, "")}`} target="_blank" rel="noopener noreferrer">
+            <Button variant="outline" size="sm" className="gap-1.5 h-8 text-[13px]">
+              <MessageCircle className="h-3.5 w-3.5" />
+              WhatsApp
+            </Button>
+          </a>
+          <a href={`mailto:${lead.email}`}>
+            <Button variant="outline" size="sm" className="gap-1.5 h-8 text-[13px]">
+              <Mail className="h-3.5 w-3.5" />
+              Email
+            </Button>
+          </a>
           <Button variant="outline" size="sm" className="gap-1.5 h-8 text-[13px]">
             <Calendar className="h-3.5 w-3.5" />
             Follow-up
