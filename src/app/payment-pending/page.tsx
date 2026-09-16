@@ -10,6 +10,8 @@ import {
   XCircle,
   ExternalLink,
   ArrowRight,
+  Copy,
+  Check,
 } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { PLAN_LIMITS } from "@/lib/plan-config"
@@ -54,6 +56,7 @@ function PaymentPendingContent() {
     plan: string
   } | null>(null)
   const [fetching, setFetching] = useState(true)
+  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     if (!paymentId) {
@@ -98,7 +101,14 @@ function PaymentPendingContent() {
   }
 
   const amount = planConfig?.price || 0
-  const amountInPaise = amount * 100
+
+  function copyPaymentId() {
+    if (paymentId) {
+      navigator.clipboard.writeText(paymentId)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }
+  }
 
   return (
     <div className="min-h-screen bg-[#fafafa]">
@@ -147,7 +157,17 @@ function PaymentPendingContent() {
             {paymentId && (
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Payment ID</span>
-                <span className="text-xs font-mono text-muted-foreground">{paymentId}</span>
+                <button
+                  onClick={copyPaymentId}
+                  className="flex items-center gap-1.5 text-xs font-mono text-muted-foreground hover:text-foreground"
+                >
+                  {paymentId.slice(0, 16)}...
+                  {copied ? (
+                    <Check className="h-3 w-3 text-green-600" />
+                  ) : (
+                    <Copy className="h-3 w-3" />
+                  )}
+                </button>
               </div>
             )}
           </div>
@@ -199,13 +219,13 @@ function PaymentPendingContent() {
             </div>
           )}
 
-          <div className="rounded-lg bg-blue-50 border border-blue-200 p-3 text-xs text-blue-700">
-            <p className="font-medium mb-1">What happens next?</p>
-            <ol className="list-decimal list-inside space-y-1">
-              <li>Complete your payment via Razorpay</li>
-              <li>Payment status will be set to PENDING</li>
-              <li>Platform owner will verify your payment</li>
-              <li>Once approved, your {planNames[plan] || plan} plan will be activated</li>
+          <div className="rounded-lg bg-blue-50 border border-blue-200 p-4 text-xs text-blue-700">
+            <p className="font-medium mb-2">How to complete payment:</p>
+            <ol className="list-decimal list-inside space-y-1.5">
+              <li>Click the &quot;Pay Now&quot; button above</li>
+              <li>Enter amount: <strong>₹{amount.toLocaleString("en-IN")}</strong></li>
+              <li>Complete payment on Razorpay</li>
+              <li>After payment, your plan will be activated within 24 hours</li>
             </ol>
           </div>
 

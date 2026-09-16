@@ -93,9 +93,8 @@ export async function POST(request: NextRequest) {
     const orgName = (org as { name: string })?.name || "Organization";
 
     // Build invite URL
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : "http://localhost:3000";
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL
+      || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
     const inviteUrl = `${baseUrl}/join?token=${rawToken}`;
 
     // Send invitation email
