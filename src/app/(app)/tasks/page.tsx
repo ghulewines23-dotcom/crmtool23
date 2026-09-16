@@ -196,11 +196,11 @@ export default function TasksPage() {
       </div>
 
       {/* Role Navigation Tabs */}
-      <div className="flex flex-wrap gap-2 border-b border-border pb-3">
+      <div className="flex items-center gap-2 overflow-x-auto border-b border-border pb-3 no-scrollbar shrink-0">
         <button
           onClick={() => setActiveRoleTab("owner")}
           className={cn(
-            "flex items-center gap-2 px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition-all",
+            "flex items-center gap-2 px-4 py-2 text-xs sm:text-sm font-medium rounded-lg whitespace-nowrap shrink-0 transition-all",
             activeRoleTab === "owner"
               ? "bg-primary text-primary-foreground shadow-sm"
               : "bg-muted/50 hover:bg-muted text-muted-foreground"
@@ -216,7 +216,7 @@ export default function TasksPage() {
         <button
           onClick={() => setActiveRoleTab("admin")}
           className={cn(
-            "flex items-center gap-2 px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition-all",
+            "flex items-center gap-2 px-4 py-2 text-xs sm:text-sm font-medium rounded-lg whitespace-nowrap shrink-0 transition-all",
             activeRoleTab === "admin"
               ? "bg-primary text-primary-foreground shadow-sm"
               : "bg-muted/50 hover:bg-muted text-muted-foreground"
@@ -232,7 +232,7 @@ export default function TasksPage() {
         <button
           onClick={() => setActiveRoleTab("sales")}
           className={cn(
-            "flex items-center gap-2 px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition-all",
+            "flex items-center gap-2 px-4 py-2 text-xs sm:text-sm font-medium rounded-lg whitespace-nowrap shrink-0 transition-all",
             activeRoleTab === "sales"
               ? "bg-primary text-primary-foreground shadow-sm"
               : "bg-muted/50 hover:bg-muted text-muted-foreground"

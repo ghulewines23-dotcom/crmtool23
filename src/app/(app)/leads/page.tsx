@@ -338,15 +338,15 @@ export default function LeadsPage() {
       </div>
 
       {/* Status filters */}
-      <div className="flex gap-1">
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar shrink-0">
         {statusTabs.map((tab) => (
           <button
             key={tab.value}
             onClick={() => setActiveTab(tab.value)}
-            className={`px-3 py-1.5 rounded-md text-[13px] font-medium transition-colors ${
+            className={`px-3 py-1.5 rounded-lg text-[13px] font-medium whitespace-nowrap shrink-0 transition-all ${
               activeTab === tab.value
-                ? "bg-foreground text-white"
-                : "text-muted-foreground hover:bg-muted"
+                ? "bg-foreground text-background shadow-sm font-semibold"
+                : "text-muted-foreground hover:bg-muted bg-muted/30"
             }`}
           >
             {tab.label}
@@ -465,6 +465,11 @@ export default function LeadsPage() {
                   <h3 className="text-[14px] font-semibold text-foreground truncate">
                     {lead.company || lead.name || "Untitled Business"}
                   </h3>
+                  {lead.phone && (
+                    <p className="text-[12px] font-mono text-muted-foreground mt-0.5">
+                      {lead.phone}
+                    </p>
+                  )}
                 </div>
               </div>
               <StatusSelect leadId={lead.id} currentStatus={lead.status} currentFollowup={lead.nextFollowup} onChange={handleStatusChange} />
