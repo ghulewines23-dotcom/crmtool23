@@ -95,6 +95,7 @@ export async function POST(request: NextRequest) {
         phone: normalized.phone,
         email: normalized.email,
         company: normalized.company,
+        category: (row as any).category || "",
         source: normalized.source,
         sourceUrl: normalized.sourceUrl,
         requirement: normalized.requirement,

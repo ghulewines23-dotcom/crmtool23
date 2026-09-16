@@ -40,7 +40,7 @@ export function AppShell({ children }: AppShellProps) {
   }, []);
 
   return (
-    <div className="relative min-h-screen bg-background">
+    <div className="relative min-h-screen bg-background overflow-x-hidden">
       {/* Mobile overlay */}
       {mobileMenuOpen && (
         <div
@@ -74,7 +74,7 @@ export function AppShell({ children }: AppShellProps) {
         )}
       >
         <Topbar onMenuToggle={toggleMobileMenu} />
-        <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-6 lg:p-8">
           {children}
         </main>
       </div>

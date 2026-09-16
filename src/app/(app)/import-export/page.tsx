@@ -68,6 +68,8 @@ export default function ImportLeadsPage() {
   const [error, setError] = useState<string | null>(null);
   const [showAllRows, setShowAllRows] = useState(false);
   const [dragActive, setDragActive] = useState(false);
+  const [category, setCategory] = useState<string>("");
+  const [location, setLocation] = useState<string>("");
 
   const handleFileUpload = useCallback(async (file: File) => {
     setError(null);
@@ -142,6 +144,7 @@ export default function ImportLeadsPage() {
           phone: row.phone,
           email: row.email,
           company: row.company,
+          category: (row as any).category || "",
           source: row.source,
           sourceUrl: row.sourceUrl,
           requirement: row.requirement,
@@ -155,7 +158,7 @@ export default function ImportLeadsPage() {
       const response = await fetch(`/api/leads/import/${job.id}`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-        body: JSON.stringify({ rows: validRows }),
+        body: JSON.stringify({ rows: validRows, category, location }),
         cache: "no-store",
       });
 
@@ -189,13 +192,15 @@ export default function ImportLeadsPage() {
     } finally {
       setImporting(false);
     }
-  }, [job, fetchLeads]);
+  }, [job, fetchLeads, addLeads, category, location]);
 
   const handleReset = useCallback(() => {
     setViewState("upload");
     setJob(null);
     setError(null);
     setShowAllRows(false);
+    setCategory("");
+    setLocation("");
   }, []);
 
   const previewRows = job?.preview || [];
@@ -313,6 +318,48 @@ export default function ImportLeadsPage() {
               )}
             </div>
           )}
+
+          {/* Batch Category & Address Settings */}
+          <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-xs space-y-4">
+            <div>
+              <h3 className="text-[15px] font-bold text-zinc-900 tracking-tight">
+                Batch Details (Category & Address)
+              </h3>
+              <p className="text-[13px] text-zinc-500 mt-0.5">
+                Optionally enter a Category and Address for all leads in this import batch.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Category Input */}
+              <div className="space-y-1.5">
+                <label className="text-[13px] font-semibold text-zinc-800">
+                  Business Category
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Clinic, Real Estate, Institute, Gym..."
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                  className="w-full h-10 bg-white text-zinc-900 border border-zinc-200 rounded-xl px-3.5 text-[13px] placeholder:text-zinc-400 outline-none shadow-xs focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 transition-all"
+                />
+              </div>
+
+              {/* Address / Location Input */}
+              <div className="space-y-1.5">
+                <label className="text-[13px] font-semibold text-zinc-800">
+                  Address / Location
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Rohini Sector 7, New Delhi"
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  className="w-full h-10 bg-white text-zinc-900 border border-zinc-200 rounded-xl px-3.5 text-[13px] placeholder:text-zinc-400 outline-none shadow-xs focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 transition-all"
+                />
+              </div>
+            </div>
+          </div>
 
           {/* Column Mapping */}
           {job.mapping && Object.keys(job.mapping).length > 0 && (

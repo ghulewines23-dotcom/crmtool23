@@ -19,6 +19,7 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
+    const categoryParam = searchParams.get("category");
     const search = searchParams.get("search");
     const page = parseInt(searchParams.get("page") || "1");
     const limitParam = searchParams.get("limit");
@@ -43,6 +44,9 @@ export async function GET(request: NextRequest) {
 
     if (status && status !== "all") {
       query.status = status;
+    }
+    if (categoryParam && categoryParam !== "all") {
+      query.category = categoryParam;
     }
 
     if (search) {
@@ -145,6 +149,7 @@ export async function POST(request: NextRequest) {
       phone: body.phone,
       email: body.email || "",
       company: body.company,
+      category: body.category || "General",
       source: body.source || "",
       sourceUrl: body.sourceUrl || "",
       status: body.status || "new",

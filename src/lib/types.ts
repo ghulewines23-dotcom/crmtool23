@@ -88,6 +88,7 @@ export interface Lead {
   email: string;
   website?: string;
   location: string;
+  category?: string;
   source: string;
   sourceUrl?: string;
   interestedIn: string;

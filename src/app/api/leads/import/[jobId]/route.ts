@@ -146,6 +146,10 @@ export async function POST(
 
     console.log(`[IMPORT CONFIRM] Deduplicated rows: ${uniqueRows.length} unique out of ${rows.length} received`);
 
+    const globalCategory = (body.category || "").trim();
+    const globalLocation = (body.location || "").trim();
+    const CATEGORIES_FOR_RANDOM = ["Clinic", "Real Estate", "Institute", "E-commerce", "Services"];
+
     const documents = uniqueRows.map((row, index) => {
       let assignedTo = "";
       let assignedToName = "";
@@ -157,16 +161,26 @@ export async function POST(
         assignedToName = agent.name;
       }
 
+      let leadCategory = globalCategory || (row as any).category?.trim() || "General";
+      if (!leadCategory) leadCategory = "General";
+
+      if (globalCategory === "Random" || leadCategory === "Random") {
+        leadCategory = CATEGORIES_FOR_RANDOM[Math.floor(Math.random() * CATEGORIES_FOR_RANDOM.length)];
+      }
+
+      const leadLocation = globalLocation || (row.location || "").trim();
+
       return {
         name: (row.name || "").trim(),
         phone: (row.phone || "").trim() || `No Phone (#${index + 1})`,
         email: (row.email || "").trim(),
         company: (row.company || "").trim() || (row.name || "").trim() || "Imported Business",
+        category: leadCategory,
         source: (row.source || "").trim(),
         sourceUrl: (row.sourceUrl || "").trim(),
         requirement: (row.requirement || "").trim() || (row.name || "").trim() || (row.company || "").trim() || (row.phone || "").trim() || "Imported Lead",
         notes: (row.notes || "").trim(),
-        location: (row.location || "").trim(),
+        location: leadLocation,
         status: "not_connected" as const,
         priority: "medium" as const,
         assignedTo,

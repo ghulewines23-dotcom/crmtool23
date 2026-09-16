@@ -5,6 +5,7 @@ export interface ILead extends Document {
   phone: string;
   email: string;
   company: string;
+  category: string;
   source: string;
   sourceUrl: string;
   status: "new" | "not_connected" | "processing" | "follow_up" | "hot_lead" | "won" | "lost" | "overdue";
@@ -37,6 +38,7 @@ const LeadSchema = new Schema<ILead>(
     phone: { type: String, required: true, trim: true },
     email: { type: String, trim: true, default: "" },
     company: { type: String, required: true, trim: true, default: "" },
+    category: { type: String, trim: true, default: "General" },
     source: { type: String, trim: true, default: "" },
     sourceUrl: { type: String, trim: true, default: "" },
     status: {
@@ -83,5 +85,9 @@ LeadSchema.index({ createdAt: -1 });
 LeadSchema.index({ company: 1 });
 LeadSchema.index({ requirement: 1 });
 LeadSchema.index({ name: "text", phone: "text", company: "text", email: "text", requirement: "text" });
+
+if (mongoose.models.Lead && !mongoose.models.Lead.schema.paths.category) {
+  delete mongoose.models.Lead;
+}
 
 export default mongoose.models.Lead || mongoose.model<ILead>("Lead", LeadSchema);

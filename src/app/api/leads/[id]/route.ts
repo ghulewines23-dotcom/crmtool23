@@ -63,6 +63,7 @@ export async function PUT(
 
       const allowedUpdate: Record<string, unknown> = {};
       if (body.status !== undefined) allowedUpdate.status = body.status;
+      if (body.category !== undefined) allowedUpdate.category = body.category;
       if (body.notes !== undefined) allowedUpdate.notes = body.notes;
       if (body.priority !== undefined) allowedUpdate.priority = body.priority;
       if (body.nextFollowup !== undefined) allowedUpdate.nextFollowup = body.nextFollowup;
@@ -97,13 +98,14 @@ export async function PUT(
     const { id } = await params;
     const body = await request.json();
 
-    // For SALES_PERSON: allow updating status, notes, nextFollowup of leads in their organization
-    if (auth.user.role === "SALES_PERSON") {
-      const lead = await Lead.findOne({
-        _id: id,
-        organizationId: auth.user.organizationId,
-      }).lean();
+    const query: Record<string, unknown> = { _id: id };
+    if (auth.user.role !== "SERENE_OWNER") {
+      query.organizationId = auth.user.organizationId;
+    }
 
+    // For SALES_PERSON: restricted update (status, notes, nextFollowup, value)
+    if (auth.user.role === "SALES_PERSON") {
+      const lead = await Lead.findOne(query).lean();
       if (!lead) {
         return Response.json(
           { success: false, error: "Lead not found" },
@@ -111,7 +113,6 @@ export async function PUT(
         );
       }
 
-      // SALES_PERSON can update: status, notes, nextFollowup, value
       const allowedUpdate: Record<string, unknown> = {};
       if (body.status !== undefined) allowedUpdate.status = body.status;
       if (body.notes !== undefined) allowedUpdate.notes = body.notes;
@@ -123,14 +124,15 @@ export async function PUT(
       return Response.json({ success: true, lead: { ...updated, id: updated?._id } });
     }
 
-    // FOUNDER: full update access (scoped to org)
+    // FOUNDER, ADMIN, SERENE_OWNER: full update access
     const lead = await Lead.findOneAndUpdate(
-      { _id: id, organizationId: auth.user.organizationId },
+      query,
       {
         ...(body.name !== undefined && { name: body.name }),
         ...(body.phone !== undefined && { phone: body.phone }),
         ...(body.email !== undefined && { email: body.email }),
         ...(body.company !== undefined && { company: body.company }),
+        ...(body.category !== undefined && { category: body.category }),
         ...(body.source !== undefined && { source: body.source }),
         ...(body.sourceUrl !== undefined && { sourceUrl: body.sourceUrl }),
         ...(body.status !== undefined && { status: body.status }),

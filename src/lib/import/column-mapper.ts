@@ -42,6 +42,10 @@ const COLUMN_ALIASES: Record<string, string[]> = {
     "location", "city", "area", "address", "region", "place", "state",
     "locality", "district", "pincode", "pin code", "zip",
   ],
+  category: [
+    "category", "business category", "lead category", "type", "industry",
+    "business type", "tag", "tags",
+  ],
 };
 
 function normalizeHeader(header: string): string {
@@ -57,6 +61,7 @@ export interface MappedRow {
   phone: string;
   email: string;
   company: string;
+  category: string;
   source: string;
   sourceUrl: string;
   requirement: string;
@@ -139,6 +144,7 @@ export function mapRowToCanonical(
     phone: "",
     email: "",
     company: "",
+    category: "",
     source: "",
     sourceUrl: "",
     requirement: "",

@@ -22,6 +22,7 @@ export function LeadForm({ lead, onClose }: LeadFormProps) {
   const [sourceUrl, setSourceUrl] = useState("");
   const [status, setStatus] = useState("new");
   const [location, setLocation] = useState("");
+  const [notes, setNotes] = useState("");
   const [assignedTo, setAssignedTo] = useState("");
 
   useEffect(() => {
@@ -35,6 +36,7 @@ export function LeadForm({ lead, onClose }: LeadFormProps) {
       setSourceUrl(lead.sourceUrl || "");
       setStatus(lead.status);
       setLocation(lead.location);
+      setNotes(lead.notes || "");
       setAssignedTo(lead.assignedToName);
     }
   }, [lead]);
@@ -179,6 +181,17 @@ export function LeadForm({ lead, onClose }: LeadFormProps) {
               onChange={(e) => setLocation(e.target.value)}
               className="h-10 w-full rounded-lg border border-border bg-white px-3 text-[13px] text-foreground placeholder:text-muted-foreground outline-none transition-colors focus:border-primary/40"
               placeholder="City, Area"
+            />
+          </div>
+          <div>
+            <label className="block text-[13px] font-medium text-foreground mb-1">
+              Notes
+            </label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              className="h-16 w-full rounded-lg border border-border bg-white px-3 py-2 text-[13px] text-foreground placeholder:text-muted-foreground outline-none transition-colors focus:border-primary/40 resize-none"
+              placeholder="Additional notes..."
             />
           </div>
           <div>
