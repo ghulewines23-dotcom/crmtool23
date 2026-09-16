@@ -1,9 +1,23 @@
 "use client";
 
 import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
-import type { User, Organization, Subscription } from "@/lib/types";
+import type { User, Organization, Subscription, OrgMembership, Notification } from "@/lib/types";
 
 // ─── State & Context Types ───────────────────────────────────────────────────
+
+interface OrgWithDetails extends OrgMembership {
+  name: string;
+  status: string;
+  isActive: boolean;
+  subscription: {
+    plan: string;
+    status: string;
+    maxLeads: number;
+    maxMembers: number;
+    trialEndsAt?: string | null;
+    currentPeriodEnd?: string;
+  } | null;
+}
 
 interface AuthState {
   user: User | null;
@@ -31,6 +45,14 @@ interface AuthContextType extends AuthState {
   isAdmin: boolean;
   isSalesPerson: boolean;
   isPlatformOwner: boolean;
+  // Multi-org
+  organizations: OrgWithDetails[];
+  switchOrganization: (organizationId: string) => Promise<void>;
+  // Notifications
+  notifications: Notification[];
+  unreadNotificationCount: number;
+  fetchNotifications: () => Promise<void>;
+  markNotificationsRead: (ids?: string[]) => Promise<void>;
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -61,6 +83,87 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isAuthenticated: false,
     isLoading: true,
   });
+
+  const [organizations, setOrganizations] = useState<OrgWithDetails[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
+
+  // ── Fetch notifications ──
+  const fetchNotifications = useCallback(async () => {
+    if (!state.user || state.user.role === "SERENE_OWNER") return;
+    try {
+      const res = await fetch("/api/notifications?limit=20", { credentials: "same-origin" });
+      const data = await res.json();
+      if (data.success) {
+        setNotifications(data.notifications || []);
+        setUnreadNotificationCount(data.unreadCount || 0);
+      }
+    } catch {
+      // Silent fail
+    }
+  }, [state.user]);
+
+  // ── Mark notifications as read ──
+  const markNotificationsRead = useCallback(async (ids?: string[]) => {
+    try {
+      await fetch("/api/notifications", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: ids
+          ? JSON.stringify({ notificationIds: ids })
+          : JSON.stringify({ markAll: true }),
+      });
+      // Refresh notifications
+      await fetchNotifications();
+    } catch {
+      // Silent fail
+    }
+  }, [fetchNotifications]);
+
+  // ── Fetch organizations list ──
+  const fetchOrganizations = useCallback(async () => {
+    if (!state.user || state.user.role === "SERENE_OWNER") return;
+    try {
+      const res = await fetch("/api/auth/organizations", { credentials: "same-origin" });
+      const data = await res.json();
+      if (data.success && data.organizations) {
+        setOrganizations(data.organizations);
+      }
+    } catch {
+      // Silent fail
+    }
+  }, [state.user]);
+
+  // ── Switch organization ──
+  const switchOrganization = useCallback(async (organizationId: string) => {
+    setState((s) => ({ ...s, isLoading: true }));
+    try {
+      const res = await fetch("/api/auth/switch-organization", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ organizationId }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        throw new Error(data.error || "Failed to switch organization");
+      }
+      // Update state with new org
+      setState((s) => ({
+        ...s,
+        user: data.user ? { ...s.user!, ...data.user } : s.user,
+        organization: data.organization ?? s.organization,
+        subscription: data.subscription ?? s.subscription,
+        isLoading: false,
+      }));
+      // Refresh org list
+      await fetchOrganizations();
+    } catch (error) {
+      setState((s) => ({ ...s, isLoading: false }));
+      throw error;
+    }
+  }, [fetchOrganizations]);
 
   // ── Session check on mount — source of truth for auth state ──
   const refreshSession = useCallback(async () => {
@@ -110,6 +213,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  // Fetch orgs and notifications when authenticated
+  useEffect(() => {
+    if (state.isAuthenticated && state.user) {
+      fetchOrganizations();
+      fetchNotifications();
+    }
+  }, [state.isAuthenticated, state.user, fetchOrganizations, fetchNotifications]);
+
   // ── Login ──
   const login = useCallback(async (email: string, password: string) => {
     setState((s) => ({ ...s, isLoading: true }));
@@ -144,6 +255,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isAuthenticated: false,
       isLoading: false,
     });
+    setOrganizations([]);
+    setNotifications([]);
+    setUnreadNotificationCount(0);
   }, []);
 
   // ── Signup ──
@@ -216,6 +330,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isAdmin,
         isSalesPerson,
         isPlatformOwner,
+        // Multi-org
+        organizations,
+        switchOrganization,
+        // Notifications
+        notifications,
+        unreadNotificationCount,
+        fetchNotifications,
+        markNotificationsRead,
       }}
     >
       {children}

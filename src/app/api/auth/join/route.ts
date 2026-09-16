@@ -6,7 +6,10 @@ import JoinToken, {
   type JoinRole,
 } from "@/models/JoinToken";
 import Organization from "@/models/Organization";
+import TeamMember from "@/models/TeamMember";
+import Notification from "@/models/Notification";
 import { requireFounder } from "@/lib/api-auth";
+import { sendEmail, buildInvitationEmail } from "@/lib/email";
 import { logAudit, AUDIT_ACTIONS } from "@/lib/auth-helpers";
 
 function jsonError(message: string, status: number) {
@@ -15,7 +18,9 @@ function jsonError(message: string, status: number) {
 
 /**
  * POST /api/auth/join
- * Generate a secure join link (FOUNDER only).
+ * Generate a secure invitation and send email (FOUNDER only).
+ *
+ * Body: { email: string, role: "ADMIN" | "SALES_PERSON" }
  */
 export async function POST(request: NextRequest) {
   const auth = await requireFounder(request);
@@ -26,10 +31,44 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const role: JoinRole = body.role;
+    const recipientEmail = (body.email || "").trim().toLowerCase();
+
+    if (!recipientEmail) {
+      return jsonError("Email is required", 400);
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipientEmail)) {
+      return jsonError("Invalid email address", 400);
+    }
 
     if (!role || !["ADMIN", "SALES_PERSON"].includes(role)) {
       return jsonError("Role must be ADMIN or SALES_PERSON", 400);
     }
+
+    // Prevent inviting yourself
+    if (recipientEmail === auth.user.email) {
+      return jsonError("You cannot invite yourself", 400);
+    }
+
+    // Check if user is already a member of this org
+    const existingMember = await TeamMember.findOne({
+      email: recipientEmail,
+      "organizations.organizationId": auth.user.organizationId,
+    }).lean();
+
+    if (existingMember) {
+      return jsonError("This user is already a member of your organization", 409);
+    }
+
+    // Invalidate any previous active invitations for this email + org
+    await JoinToken.updateMany(
+      {
+        organizationId: auth.user.organizationId,
+        recipientEmail,
+        status: "active",
+      },
+      { status: "revoked", revokedAt: new Date() }
+    );
 
     // Generate token
     const rawToken = generateRawToken();
@@ -41,9 +80,58 @@ export async function POST(request: NextRequest) {
       organizationId: auth.user.organizationId,
       role,
       createdBy: auth.user.id,
+      recipientEmail,
       expiresAt,
       status: "active",
     });
+
+    // Get org name for email
+    const org = await Organization.findById(auth.user.organizationId)
+      .select("name")
+      .lean();
+
+    const orgName = (org as { name: string })?.name || "Organization";
+
+    // Build invite URL
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : "http://localhost:3000";
+    const inviteUrl = `${baseUrl}/join?token=${rawToken}`;
+
+    // Send invitation email
+    const emailContent = buildInvitationEmail({
+      orgName,
+      role,
+      inviteUrl,
+      inviterName: auth.user.name,
+    });
+
+    const emailSent = await sendEmail({
+      to: recipientEmail,
+      ...emailContent,
+    });
+
+    if (!emailSent) {
+      console.error(`[Invitation] Failed to send invitation email to ${recipientEmail}. Check RESEND_API_KEY configuration.`);
+    }
+
+    // Create notification for recipient (if they have an account)
+    const recipient = await TeamMember.findOne({ email: recipientEmail })
+      .select("_id")
+      .lean();
+
+    if (recipient) {
+      await Notification.create({
+        userId: String((recipient as { _id: unknown })._id),
+        type: "general",
+        title: `Organization Invitation`,
+        message: `You have been invited to join ${orgName} as ${role === "ADMIN" ? "Admin" : "Sales Person"}.`,
+        organizationId: auth.user.organizationId,
+        invitationId: rawToken,
+        read: false,
+        actionUrl: inviteUrl,
+      });
+    }
 
     // Audit log
     await logAudit({
@@ -52,23 +140,19 @@ export async function POST(request: NextRequest) {
       organizationId: auth.user.organizationId,
       action: AUDIT_ACTIONS.JOIN_TOKEN_CREATED,
       targetType: "JoinToken",
-      metadata: { role, expiresAt },
+      metadata: { role, recipientEmail, emailSent },
     });
 
-    // Return the raw token (only time it's visible)
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "";
-    const joinUrl = `${baseUrl}/join?token=${rawToken}`;
-
+    // Return success (don't expose raw token in response body for email-based flow)
     return Response.json({
       success: true,
-      token: rawToken,
-      joinUrl,
+      message: `Invitation sent to ${recipientEmail}`,
       role,
       expiresAt,
     });
   } catch (error) {
     console.error("Join token creation error:", error);
-    return jsonError("Failed to generate join link", 500);
+    return jsonError("Failed to send invitation", 500);
   }
 }
 

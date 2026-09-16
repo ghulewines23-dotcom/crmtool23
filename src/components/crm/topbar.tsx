@@ -4,8 +4,9 @@ import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "cn";
 import { useAuth } from "@/lib/auth-context";
-import { Menu, Search, Bell, User, Settings, LogOut, ChevronDown } from "lucide-react";
+import { Menu, Search, Bell, User, Settings, LogOut, ChevronDown, Check, X, Clock } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { OrganizationSelector } from "./organization-selector";
 
 interface TopbarProps {
   onMenuToggle: () => void;
@@ -21,15 +22,36 @@ function getInitials(name: string): string {
     .slice(0, 2);
 }
 
+function formatTimeAgo(dateStr: string): string {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  if (diffMins < 1) return "just now";
+  if (diffMins < 60) return `${diffMins}m ago`;
+  const diffHours = Math.floor(diffMins / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  const diffDays = Math.floor(diffHours / 24);
+  return `${diffDays}d ago`;
+}
+
 export function Topbar({ onMenuToggle, className }: TopbarProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
-  const { user, logout } = useAuth();
+  const {
+    user,
+    logout,
+    notifications,
+    unreadNotificationCount,
+    markNotificationsRead,
+    isPlatformOwner,
+  } = useAuth();
 
-  const notificationCount = 3;
+  const [acceptingId, setAcceptingId] = useState<string | null>(null);
+  const [decliningId, setDecliningId] = useState<string | null>(null);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -43,6 +65,32 @@ export function Topbar({ onMenuToggle, className }: TopbarProps) {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  async function handleAcceptInvitation(invitationId: string) {
+    setAcceptingId(invitationId);
+    try {
+      const res = await fetch("/api/auth/join/accept", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ token: invitationId }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        await markNotificationsRead([invitationId]);
+        window.location.reload();
+      }
+    } catch {
+      // Silent fail
+    }
+    setAcceptingId(null);
+  }
+
+  async function handleDeclineInvitation(notificationId: string) {
+    setDecliningId(notificationId);
+    await markNotificationsRead([notificationId]);
+    setDecliningId(null);
+  }
 
   return (
     <header
@@ -60,8 +108,11 @@ export function Topbar({ onMenuToggle, className }: TopbarProps) {
         <Menu className="h-5 w-5" />
       </button>
 
+      {/* Organization Selector */}
+      <OrganizationSelector />
+
       {/* Search */}
-      <div className="relative w-full max-w-[480px]">
+      <div className="relative w-full max-w-[480px] ml-4">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <input
           type="text"
@@ -72,41 +123,106 @@ export function Topbar({ onMenuToggle, className }: TopbarProps) {
 
       <div className="ml-auto flex items-center gap-1">
         {/* Notification bell */}
-        <div className="relative" ref={notifRef}>
-          <button
-            onClick={() => setNotifOpen(!notifOpen)}
-            className="relative rounded-lg p-2 text-muted-foreground transition-colors hover:bg-[#F4F4F5] hover:text-foreground"
-            aria-label="Notifications"
-          >
-            <Bell className="h-[18px] w-[18px]" />
-            {notificationCount > 0 && (
-              <span className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[9px] font-semibold text-primary-foreground">
-                {notificationCount}
-              </span>
-            )}
-          </button>
+        {!isPlatformOwner && (
+          <div className="relative" ref={notifRef}>
+            <button
+              onClick={() => {
+                setNotifOpen(!notifOpen);
+                if (!notifOpen && unreadNotificationCount > 0) {
+                  // Mark all as read when opening
+                  markNotificationsRead();
+                }
+              }}
+              className="relative rounded-lg p-2 text-muted-foreground transition-colors hover:bg-[#F4F4F5] hover:text-foreground"
+              aria-label="Notifications"
+            >
+              <Bell className="h-[18px] w-[18px]" />
+              {unreadNotificationCount > 0 && (
+                <span className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[9px] font-semibold text-primary-foreground">
+                  {unreadNotificationCount > 99 ? "99+" : unreadNotificationCount}
+                </span>
+              )}
+            </button>
 
-          {notifOpen && (
-            <div className="absolute right-0 top-full mt-1 w-72 overflow-hidden rounded-lg border border-[#E7E7E5] bg-white shadow-[0_4px_12px_rgba(0,0,0,0.08)]">
-              <div className="flex items-center justify-between border-b border-[#E7E7E5] px-4 py-3">
-                <p className="text-[13px] font-medium">Notifications</p>
-                <span className="text-[11px] text-primary cursor-pointer hover:underline">Mark all read</span>
+            {notifOpen && (
+              <div className="absolute right-0 top-full mt-1 w-80 overflow-hidden rounded-lg border border-[#E7E7E5] bg-white shadow-[0_4px_12px_rgba(0,0,0,0.08)]">
+                <div className="flex items-center justify-between border-b border-[#E7E7E5] px-4 py-3">
+                  <p className="text-[13px] font-medium">Notifications</p>
+                  {unreadNotificationCount > 0 && (
+                    <button
+                      onClick={() => markNotificationsRead()}
+                      className="text-[11px] text-primary cursor-pointer hover:underline"
+                    >
+                      Mark all read
+                    </button>
+                  )}
+                </div>
+                <div className="divide-y divide-[#E7E7E5] max-h-[400px] overflow-y-auto">
+                  {notifications.length === 0 ? (
+                    <div className="px-4 py-8 text-center">
+                      <p className="text-[13px] text-muted-foreground">No notifications</p>
+                    </div>
+                  ) : (
+                    notifications.map((n) => (
+                      <div
+                        key={n.id}
+                        className={cn(
+                          "px-4 py-3 transition-colors",
+                          !n.read && "bg-primary/5"
+                        )}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className={cn(
+                            "mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full",
+                            n.type === "member_joined" ? "bg-green-100 text-green-600" : "bg-blue-100 text-blue-600"
+                          )}>
+                            {n.type === "member_joined" ? (
+                              <Check className="h-3.5 w-3.5" />
+                            ) : n.invitationId ? (
+                              <Clock className="h-3.5 w-3.5" />
+                            ) : (
+                              <Bell className="h-3.5 w-3.5" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[12px] font-medium text-foreground">{n.title}</p>
+                            <p className="text-[11px] text-muted-foreground mt-0.5">{n.message}</p>
+                            <p className="text-[10px] text-muted-foreground/60 mt-1">{formatTimeAgo(n.createdAt)}</p>
+                            {/* Invitation actions */}
+                            {n.invitationId && !n.read && (
+                              <div className="flex items-center gap-2 mt-2">
+                                <button
+                                  onClick={() => handleAcceptInvitation(n.invitationId!)}
+                                  disabled={acceptingId === n.invitationId}
+                                  className="flex items-center gap-1 rounded-md bg-primary px-2.5 py-1 text-[11px] font-medium text-white hover:bg-primary/90 disabled:opacity-50"
+                                >
+                                  {acceptingId === n.invitationId ? (
+                                    <span className="animate-spin h-3 w-3 border border-white border-t-transparent rounded-full" />
+                                  ) : (
+                                    <Check className="h-3 w-3" />
+                                  )}
+                                  Accept
+                                </button>
+                                <button
+                                  onClick={() => handleDeclineInvitation(n.id)}
+                                  disabled={decliningId === n.id}
+                                  className="flex items-center gap-1 rounded-md border border-border px-2.5 py-1 text-[11px] font-medium text-muted-foreground hover:bg-muted disabled:opacity-50"
+                                >
+                                  <X className="h-3 w-3" />
+                                  Decline
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
-              <div className="divide-y divide-[#E7E7E5]">
-                {[
-                  { text: "New lead assigned: Sneha Patel", time: "2m ago" },
-                  { text: "Deal won: Ahmedabad Jewellers", time: "1h ago" },
-                  { text: "Follow-up overdue: Arjun Nair", time: "3h ago" },
-                ].map((n, i) => (
-                  <div key={i} className="px-4 py-3 hover:bg-[#F8F8F6] transition-colors cursor-pointer">
-                    <p className="text-[12px] text-foreground">{n.text}</p>
-                    <p className="text-[11px] text-muted-foreground mt-0.5">{n.time}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
 
         {/* User dropdown */}
         <div className="relative" ref={dropdownRef}>

@@ -9,6 +9,7 @@ export interface IJoinToken extends Document {
   organizationId: string;
   role: JoinRole;
   createdBy: string; // TeamMember _id of FOUNDER
+  recipientEmail: string; // email of the invited person
   expiresAt: Date;
   usedAt?: Date | null;
   usedBy?: string | null; // TeamMember _id who used it
@@ -28,6 +29,7 @@ const JoinTokenSchema = new Schema<IJoinToken>(
       required: true,
     },
     createdBy: { type: String, required: true },
+    recipientEmail: { type: String, required: true, lowercase: true, trim: true },
     expiresAt: { type: Date, required: true },
     usedAt: { type: Date, default: null },
     usedBy: { type: String, default: null },

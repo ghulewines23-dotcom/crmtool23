@@ -3,6 +3,7 @@ import { connectDB } from "@/lib/db/connect";
 import JoinToken, { hashToken } from "@/models/JoinToken";
 import TeamMember from "@/models/TeamMember";
 import Organization from "@/models/Organization";
+import Notification from "@/models/Notification";
 import { requireAuth, checkMemberLimit } from "@/lib/api-auth";
 import { logAudit, AUDIT_ACTIONS } from "@/lib/auth-helpers";
 import { createSessionToken, setSessionCookie, getSessionFromRequest } from "@/lib/auth";
@@ -36,20 +37,6 @@ export async function POST(request: NextRequest) {
     return jsonError("Serene Owners cannot join customer organizations", 403);
   }
 
-  // Already has an org — only allow if they have no real org (e.g. edge case)
-  // In normal flow: a new user has no org yet, or could be joining a second org
-  // For safety: prevent re-joining if already in a different org
-  if (
-    user.organizationId &&
-    user.organizationId !== "__pending__" &&
-    user.organizationId !== ""
-  ) {
-    return jsonError(
-      "You are already a member of an organization. Contact support to switch organizations.",
-      409
-    );
-  }
-
   try {
     const body = await request.json();
     const rawToken = (body.token || "").trim();
@@ -75,9 +62,15 @@ export async function POST(request: NextRequest) {
       return jsonError("This join link has expired", 410);
     }
 
+    // Validate email matches the invitation recipient
+    const recipientEmail = (joinToken as { recipientEmail?: string }).recipientEmail;
+    if (recipientEmail && recipientEmail !== user.email) {
+      return jsonError("This invitation was sent to a different email address", 403);
+    }
+
     // Verify organization is active
     const org = await Organization.findById(joinToken.organizationId)
-      .select("name status")
+      .select("name status founderId")
       .lean();
     if (!org) {
       return jsonError("Organization not found", 404);
@@ -95,12 +88,48 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Assign user to org with the token's role
-    await TeamMember.findByIdAndUpdate(user.id, {
+    // Fetch the full user document to work with organizations array
+    const fullUser = await TeamMember.findById(user.id).lean();
+    if (!fullUser) {
+      return jsonError("User not found", 404);
+    }
+
+    // Lazy-initialize organizations array from legacy organizationId
+    let memberships = (fullUser as { organizations?: Array<{ organizationId: string; role: string; joinedAt: Date }> }).organizations || [];
+    if (memberships.length === 0 && (fullUser as { organizationId: string }).organizationId) {
+      const legacyOrgId = (fullUser as { organizationId: string }).organizationId;
+      memberships = [{ organizationId: legacyOrgId, role: (fullUser as { role: string }).role, joinedAt: new Date() }];
+    }
+
+    // Check if already a member of this org
+    const alreadyMember = memberships.some((m) => m.organizationId === joinToken.organizationId);
+    if (alreadyMember) {
+      return jsonError("You are already a member of this organization", 409);
+    }
+
+    // Add to organizations array
+    const newMembership = {
       organizationId: joinToken.organizationId,
       role: joinToken.role,
+      joinedAt: new Date(),
+    };
+
+    const updateOps: Record<string, unknown> = {
+      $push: { organizations: newMembership },
       status: "active",
-    });
+    };
+
+    // If user has no active org yet, set this as their active org
+    if (
+      !(fullUser as { organizationId: string }).organizationId ||
+      (fullUser as { organizationId: string }).organizationId === "__pending__" ||
+      (fullUser as { organizationId: string }).organizationId === ""
+    ) {
+      updateOps.organizationId = joinToken.organizationId;
+      updateOps.role = joinToken.role;
+    }
+
+    await TeamMember.findByIdAndUpdate(user.id, updateOps);
 
     // Mark token as used
     await JoinToken.findByIdAndUpdate(joinToken._id, {
@@ -109,16 +138,41 @@ export async function POST(request: NextRequest) {
       usedBy: user.id,
     });
 
-    // Refresh session token with new org + role
-    const newToken = await createSessionToken({
-      userId: user.id,
-      email: user.email,
-      name: user.name,
-      role: joinToken.role,
-      organizationId: joinToken.organizationId,
-      sessionId: currentSessionId,
-    });
-    await setSessionCookie(newToken);
+    // Create notification for the founder about the new member
+    const founderId = (org as { founderId: string }).founderId;
+    if (founderId) {
+      await Notification.create({
+        userId: founderId,
+        type: "member_joined",
+        title: "New Team Member",
+        message: `${user.name} has joined ${(org as { name: string }).name} as ${joinToken.role === "ADMIN" ? "Admin" : "Sales Person"}.`,
+        organizationId: joinToken.organizationId,
+        read: false,
+      });
+    }
+
+    // Mark any invitation notifications for this user as read
+    await Notification.updateMany(
+      {
+        userId: user.id,
+        invitationId: rawToken,
+        read: false,
+      },
+      { read: true }
+    );
+
+    // If this was the user's first org, refresh the session with the new org
+    if (updateOps.organizationId) {
+      const newToken = await createSessionToken({
+        userId: user.id,
+        email: user.email,
+        name: user.name,
+        role: joinToken.role,
+        organizationId: joinToken.organizationId,
+        sessionId: currentSessionId,
+      });
+      await setSessionCookie(newToken);
+    }
 
     // Audit log
     await logAudit({

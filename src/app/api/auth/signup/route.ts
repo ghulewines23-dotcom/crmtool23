@@ -63,6 +63,7 @@ export async function POST(request: NextRequest) {
       avatar: initials,
       status: "active",
       organizationId: "__pending__", // will be updated below
+      organizations: [], // will be populated below
       passwordHash,
     });
 
@@ -76,9 +77,14 @@ export async function POST(request: NextRequest) {
       phone,
     });
 
-    // ── Update user with real organizationId ──
+    // ── Update user with real organizationId + organizations array ──
     await TeamMember.findByIdAndUpdate(founderId, {
       organizationId: organization.id,
+      organizations: [{
+        organizationId: organization.id,
+        role: "FOUNDER",
+        joinedAt: new Date(),
+      }],
     });
 
     // ── Create session ──

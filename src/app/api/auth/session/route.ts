@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
 
     // Always re-validate user from DB — never trust JWT payload for role/orgId
     const user = await TeamMember.findById(session.userId)
-      .select("name email role avatar phone organizationId status activeSessionId")
+      .select("name email role avatar phone organizationId organizations status activeSessionId")
       .lean();
 
     if (!user || user.status !== "active") {
@@ -36,6 +36,16 @@ export async function GET(request: NextRequest) {
         { success: false, error: "Session expired. Please log in again." },
         { status: 401 }
       );
+    }
+
+    // Lazy-initialize organizations array from legacy organizationId
+    let memberships = (user as { organizations?: Array<{ organizationId: string; role: string; joinedAt: Date }> }).organizations || [];
+    if (memberships.length === 0 && (user as { organizationId: string }).organizationId) {
+      const legacyOrgId = (user as { organizationId: string }).organizationId;
+      memberships = [{ organizationId: legacyOrgId, role: (user as { role: string }).role, joinedAt: new Date() }];
+      await TeamMember.findByIdAndUpdate(session.userId, {
+        organizations: memberships,
+      });
     }
 
     // Fetch real organization and subscription from DB
@@ -72,6 +82,11 @@ export async function GET(request: NextRequest) {
             .slice(0, 2),
         phone: user.phone,
         organizationId: user.organizationId,
+        organizations: memberships.map((m) => ({
+          organizationId: m.organizationId,
+          role: m.role,
+          joinedAt: m.joinedAt,
+        })),
       },
       organization: organization
         ? {

@@ -36,7 +36,14 @@ export interface User {
   avatar: string;
   phone?: string;
   organizationId: string;
+  organizations: OrgMembership[];
   status: "active" | "inactive" | "invited";
+}
+
+export interface OrgMembership {
+  organizationId: string;
+  role: UserRole;
+  joinedAt: string;
 }
 
 export interface Subscription {
@@ -49,6 +56,23 @@ export interface Subscription {
   trialEndsAt?: string | null;
   currentPeriodStart?: string;
   currentPeriodEnd?: string;
+}
+
+// ─── Notifications ───
+
+export type NotificationType = "invitation_accepted" | "invitation_declined" | "org_joined" | "member_joined" | "general";
+
+export interface Notification {
+  id: string;
+  userId: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  organizationId?: string | null;
+  invitationId?: string | null;
+  read: boolean;
+  actionUrl?: string | null;
+  createdAt: string;
 }
 
 // ─── CRM Core ───

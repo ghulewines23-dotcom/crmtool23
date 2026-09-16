@@ -9,6 +9,12 @@ import mongoose, { Schema, Document } from "mongoose";
  */
 export type UserRole = "SERENE_OWNER" | "FOUNDER" | "ADMIN" | "SALES_PERSON";
 
+export interface IOrgMembership {
+  organizationId: string;
+  role: UserRole;
+  joinedAt: Date;
+}
+
 export interface ITeamMember extends Document {
   name: string;
   email: string;
@@ -20,12 +26,26 @@ export interface ITeamMember extends Document {
   completedTasks: number;
   projects: number;
   status: "active" | "inactive" | "invited";
-  organizationId: string; // empty string for SERENE_OWNER
+  organizationId: string; // active organization (backward compat)
+  organizations: IOrgMembership[]; // all org memberships
   passwordHash: string;
   activeSessionId: string; // the one valid session ID for this user
   createdAt: Date;
   updatedAt: Date;
 }
+
+const OrgMembershipSchema = new Schema<IOrgMembership>(
+  {
+    organizationId: { type: String, required: true },
+    role: {
+      type: String,
+      enum: ["SERENE_OWNER", "FOUNDER", "ADMIN", "SALES_PERSON"],
+      required: true,
+    },
+    joinedAt: { type: Date, default: Date.now },
+  },
+  { _id: false }
+);
 
 const TeamMemberSchema = new Schema<ITeamMember>(
   {
@@ -48,8 +68,10 @@ const TeamMemberSchema = new Schema<ITeamMember>(
       enum: ["active", "inactive", "invited"],
       default: "active",
     },
-    // Empty string for SERENE_OWNER (they belong to no customer org)
+    // Active organization (backward compat — always the currently selected org)
     organizationId: { type: String, default: "", index: true },
+    // All organization memberships
+    organizations: { type: [OrgMembershipSchema], default: [] },
     passwordHash: { type: String, default: "" },
     // Single active device: the one valid session ID for this user
     activeSessionId: { type: String, default: "" },
@@ -60,6 +82,7 @@ const TeamMemberSchema = new Schema<ITeamMember>(
 // Global email uniqueness (email is the login identifier across all orgs)
 TeamMemberSchema.index({ email: 1 }, { unique: true });
 TeamMemberSchema.index({ organizationId: 1, role: 1 });
+TeamMemberSchema.index({ "organizations.organizationId": 1 });
 
 export default mongoose.models.TeamMember ||
   mongoose.model<ITeamMember>("TeamMember", TeamMemberSchema);
