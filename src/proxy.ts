@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifySessionToken } from "@/lib/auth";
 
-const PUBLIC_PATHS = ["/login", "/signup", "/forgot-password", "/reset-password"];
-const PUBLIC_API_PREFIXES = ["/api/auth/"];
+const PUBLIC_PATHS = ["/login", "/signup", "/forgot-password", "/reset-password", "/onboarding"];
+const PUBLIC_API_PREFIXES = ["/api/auth/", "/api/onboarding/"];
 
 function isPublicPath(pathname: string): boolean {
   if (PUBLIC_PATHS.includes(pathname)) return true;

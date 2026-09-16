@@ -95,3 +95,42 @@ export async function PUT(
     return Response.json({ success: false, error: "Failed to update user" }, { status: 500 });
   }
 }
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const auth = await requirePlatformOwner(request);
+  if ("error" in auth) return auth.error;
+
+  const { id } = await params;
+
+  try {
+    await connectDB();
+
+    const user = await TeamMember.findById(id).lean();
+    if (!user) {
+      return Response.json({ success: false, error: "User not found" }, { status: 404 });
+    }
+
+    if (user.role === "SERENE_OWNER") {
+      return Response.json({ success: false, error: "Cannot delete SERENE_OWNER" }, { status: 400 });
+    }
+
+    await TeamMember.findByIdAndDelete(id);
+
+    await AuditLog.create({
+      actorId: auth.user.id,
+      actorEmail: auth.user.email,
+      action: "USER_DELETED",
+      targetType: "User",
+      targetId: id,
+      metadata: { userName: user.name, userEmail: user.email },
+    });
+
+    return Response.json({ success: true });
+  } catch (error) {
+    console.error("Platform user delete error:", error);
+    return Response.json({ success: false, error: "Failed to delete user" }, { status: 500 });
+  }
+}

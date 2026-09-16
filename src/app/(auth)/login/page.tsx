@@ -36,8 +36,12 @@ export default function LoginPage() {
       }
 
       const role = data.user?.role
+      const orgId = data.user?.organizationId
+
       if (role === "SERENE_OWNER") {
         window.location.href = "/platform"
+      } else if (!orgId) {
+        window.location.href = "/onboarding"
       } else {
         window.location.href = "/dashboard"
       }
