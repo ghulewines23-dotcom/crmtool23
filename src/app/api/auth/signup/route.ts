@@ -1,13 +1,8 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db/connect";
 import TeamMember from "@/models/TeamMember";
-import {
-  hashPassword,
-  createSessionToken,
-  setSessionCookie,
-  generateSessionId,
-} from "@/lib/auth";
-import { createOrgWithTrial, logAudit, AUDIT_ACTIONS } from "@/lib/auth-helpers";
+import { hashPassword } from "@/lib/auth";
+import { logAudit, AUDIT_ACTIONS } from "@/lib/auth-helpers";
 
 function jsonError(message: string, status: number) {
   return Response.json({ success: false, error: message }, { status });
@@ -19,19 +14,17 @@ export async function POST(request: NextRequest) {
     const name = (body.name || "").trim();
     const email = (body.email || "").trim().toLowerCase();
     const password = body.password || "";
-    const businessName = (body.businessName || "").trim();
-    const phone = (body.phone || "").trim();
-    const industry = (body.industry || "").trim();
+    const confirmPassword = (body.confirmPassword || "").trim();
 
     // ── Validation ──
     if (!name || !email || !password) {
       return jsonError("Name, email, and password are required", 400);
     }
-    if (!businessName) {
-      return jsonError("Business name is required", 400);
-    }
     if (password.length < 8) {
       return jsonError("Password must be at least 8 characters", 400);
+    }
+    if (password !== confirmPassword) {
+      return jsonError("Passwords do not match", 400);
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return jsonError("Invalid email address", 400);
@@ -53,115 +46,36 @@ export async function POST(request: NextRequest) {
       .toUpperCase()
       .slice(0, 2);
 
-    // ── Create user with a temporary placeholder orgId ──
-    // We'll update it after creating the org
+    // ── Create user with pending_access status ──
     const member = await TeamMember.create({
       name,
       email,
-      phone,
-      role: "FOUNDER",
+      role: "SALES_PERSON",
       avatar: initials,
-      status: "active",
-      organizationId: "__pending__", // will be updated below
-      organizations: [], // will be populated below
+      status: "pending_access",
+      organizationId: "",
+      organizations: [],
       passwordHash,
     });
 
-    const founderId = String(member._id);
-
-    // ── Create Organization + FREE_TRIAL Subscription ──
-    const { organization, subscription } = await createOrgWithTrial({
-      name: businessName,
-      founderId,
-      industry,
-      phone,
-    });
-
-    // ── Update user with real organizationId + organizations array ──
-    await TeamMember.findByIdAndUpdate(founderId, {
-      organizationId: organization.id,
-      organizations: [{
-        organizationId: organization.id,
-        role: "FOUNDER",
-        joinedAt: new Date(),
-      }],
-    });
-
-    // ── Create session ──
-    const sessionId = generateSessionId();
-
-    // Store the session ID on the user
-    await TeamMember.findByIdAndUpdate(founderId, {
-      activeSessionId: sessionId,
-    });
-
-    const token = await createSessionToken({
-      userId: founderId,
-      email: member.email,
-      name: member.name,
-      role: "FOUNDER",
-      organizationId: organization.id,
-      sessionId,
-    });
-
-    await setSessionCookie(token);
-
     // ── Audit log ──
     await logAudit({
-      actorId: founderId,
+      actorId: String(member._id),
       actorEmail: email,
-      organizationId: organization.id,
-      action: AUDIT_ACTIONS.ORGANIZATION_CREATED,
-      targetType: "Organization",
-      targetId: organization.id,
-      metadata: { orgName: businessName, plan: "FREE_TRIAL" },
-    });
-
-    await logAudit({
-      actorId: founderId,
-      actorEmail: email,
-      organizationId: organization.id,
       action: AUDIT_ACTIONS.USER_SIGNUP,
       targetType: "User",
-      targetId: founderId,
+      targetId: String(member._id),
     });
 
     return Response.json(
       {
         success: true,
-        user: {
-          id: founderId,
-          name: member.name,
-          email: member.email,
-          role: "FOUNDER",
-          avatar: member.avatar,
-          phone: member.phone,
-          organizationId: organization.id,
-          organizations: [{
-            organizationId: organization.id,
-            role: "FOUNDER",
-            joinedAt: new Date().toISOString(),
-          }],
-        },
-        organization: {
-          id: organization.id,
-          name: organization.name,
-          status: organization.status,
-        },
-        subscription: {
-          plan: subscription.plan,
-          status: subscription.status,
-          trialEndsAt: subscription.trialEndsAt,
-          maxLeads: 20,
-          maxMembers: 1,
-        },
+        message: "Account created. Your access is pending administrator approval.",
       },
       { status: 201 }
     );
   } catch (error: unknown) {
     console.error("Signup error:", error);
-
-    // Handle MongoDB duplicate key error (E11000)
     if (
       error &&
       typeof error === "object" &&
@@ -170,7 +84,6 @@ export async function POST(request: NextRequest) {
     ) {
       return jsonError("An account with this email already exists", 409);
     }
-
     return jsonError("Signup failed. Please try again.", 500);
   }
 }

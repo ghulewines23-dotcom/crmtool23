@@ -12,7 +12,7 @@ export interface ApiUser {
   email: string;
   role: SessionRole;
   organizationId: string;
-  status: "active" | "inactive" | "invited";
+  status: "active" | "inactive" | "invited" | "pending_access" | "suspended";
 }
 
 // ─── Core auth helpers ───────────────────────────────────────────────────────

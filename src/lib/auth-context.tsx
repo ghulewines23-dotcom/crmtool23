@@ -34,9 +34,7 @@ interface AuthContextType extends AuthState {
     name: string;
     email: string;
     password: string;
-    businessName: string;
-    phone?: string;
-    industry?: string;
+    confirmPassword: string;
   }) => Promise<void>;
   refreshSession: () => Promise<void>;
   hasRole: (...roles: User["role"][]) => boolean;
@@ -266,9 +264,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       name: string;
       email: string;
       password: string;
-      businessName: string;
-      phone?: string;
-      industry?: string;
+      confirmPassword: string;
     }) => {
       setState((s) => ({ ...s, isLoading: true }));
       const res = await fetch("/api/auth/signup", {
@@ -279,9 +275,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           name: data.name,
           email: data.email,
           password: data.password,
-          businessName: data.businessName,
-          phone: data.phone || "",
-          industry: data.industry || "",
+          confirmPassword: data.confirmPassword,
         }),
       });
       const result = await res.json();
@@ -289,7 +283,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setState((s) => ({ ...s, isLoading: false }));
         throw new Error(result.error || "Signup failed");
       }
-      setState(mapSessionResponse(result));
+      // Signup does not create a session — user must wait for approval
+      setState((s) => ({ ...s, isLoading: false }));
     },
     []
   );

@@ -65,7 +65,7 @@ const TeamMemberSchema = new Schema<ITeamMember>(
     projects: { type: Number, default: 0 },
     status: {
       type: String,
-      enum: ["active", "inactive", "invited"],
+      enum: ["active", "inactive", "invited", "pending_access", "suspended"],
       default: "active",
     },
     // Active organization (backward compat — always the currently selected org)
