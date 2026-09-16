@@ -102,7 +102,7 @@ export function Topbar({ onMenuToggle, className }: TopbarProps) {
       {/* Mobile menu toggle */}
       <button
         onClick={onMenuToggle}
-        mr-3 rounded-lg p-2 text-slate-400 transition-all hover:bg-slate-100 hover:text-slate-600 lg:hidden
+        className="mr-3 rounded-lg p-2 text-slate-400 transition-all hover:bg-slate-100 hover:text-slate-600 lg:hidden"
         aria-label="Toggle menu"
       >
         <Menu className="h-5 w-5" />
