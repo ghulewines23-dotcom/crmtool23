@@ -5,7 +5,7 @@ import { Search } from "lucide-react"
 import { Input } from "@/components/ui/input"
 
 interface Org {
-  _id: string
+  id: string
   name: string
   founderId: string
   status: string
@@ -84,8 +84,8 @@ export default function OrganizationsPage() {
               </tr>
             ) : (
               orgs.map((o) => (
-                <tr key={o._id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 font-mono text-xs text-gray-500">{o._id.slice(0, 12)}...</td>
+                <tr key={o.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-3 font-mono text-xs text-gray-500">{o.id.slice(0, 12)}...</td>
                   <td className="px-4 py-3 font-medium text-[#1a1a1a]">{o.name}</td>
                   <td className="px-4 py-3 text-gray-600">{o.memberCount}</td>
                   <td className="px-4 py-3 text-gray-600">{o.subscription?.plan || "—"}</td>
