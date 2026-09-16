@@ -25,6 +25,7 @@ import {
   CalendarClock,
   Plus,
   Search,
+  MessageSquare,
 } from "lucide-react";
 
 const today = "2026-09-14";
@@ -181,7 +182,21 @@ export default function CallsPage() {
                       </div>
                     </td>
                     <td className="hidden px-6 py-3.5 text-zinc-400 md:table-cell">
-                      {call.phone}
+                      <div className="flex items-center gap-2">
+                        <span>{call.phone}</span>
+                        {call.phone && (
+                          <a
+                            href={`https://wa.me/${call.phone.replace(/[^0-9]/g, "").startsWith("91") || call.phone.replace(/[^0-9]/g, "").length > 10 ? call.phone.replace(/[^0-9]/g, "") : "91" + call.phone.replace(/[^0-9]/g, "")}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center justify-center h-6 w-6 rounded bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/30 transition-colors"
+                            title="Chat on WhatsApp"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <MessageSquare className="h-3.5 w-3.5" />
+                          </a>
+                        )}
+                      </div>
                     </td>
                     <td className="hidden px-6 py-3.5 text-zinc-400 sm:table-cell">
                       {call.date}

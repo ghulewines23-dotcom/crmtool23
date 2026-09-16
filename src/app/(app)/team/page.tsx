@@ -19,7 +19,7 @@ export default function TeamPage() {
       const res = await fetch("/api/team", { credentials: "same-origin" })
       const data = await res.json()
       if (data.success) setMembers(data.members.filter((m: TeamMember) => m.role !== "FOUNDER" && m.role !== "SERENE_OWNER"))
-    } catch {}
+    } catch { }
     setLoading(false)
   }, [])
 
@@ -56,10 +56,7 @@ export default function TeamPage() {
               {filtered.map((member) => (
                 <tr key={member.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-8 w-8 shrink-0"><AvatarFallback className="bg-muted text-[11px] font-medium text-foreground">{member.avatar}</AvatarFallback></Avatar>
-                      <span className="text-[13px] font-medium">{member.name}</span>
-                    </div>
+                    <span className="text-[13px] font-medium">{member.name}</span>
                   </td>
                   <td className="px-4 py-3 text-[13px] text-muted-foreground hidden md:table-cell">{member.email}</td>
                   <td className="px-4 py-3 text-[13px] text-muted-foreground hidden md:table-cell">{member.phone}</td>

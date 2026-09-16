@@ -22,7 +22,7 @@ export function validateLead(lead: MappedRow, rowIndex: number): ValidationResul
   return {
     isValid: true,
     errors: [],
-    warnings,
+    warnings: [],
   };
 }
 

@@ -136,7 +136,7 @@ export default function ImportLeadsPage() {
     try {
       // Send valid rows directly in the body — no in-memory Map dependency
       const validRows = (job.preview || [])
-        .filter((row) => !row.isDuplicate)
+        .filter((row) => row.isValid && !row.isDuplicate)
         .map((row) => ({
           name: row.name,
           phone: row.phone,
@@ -235,11 +235,10 @@ export default function ImportLeadsPage() {
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onClick={() => fileInputRef.current?.click()}
-          className={`flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-12 transition-colors ${
-            dragActive
+          className={`flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-12 transition-colors ${dragActive
               ? "border-primary bg-primary/5"
               : "border-border hover:border-primary/30 hover:bg-muted/30"
-          }`}
+            }`}
         >
           <input
             ref={fileInputRef}
@@ -426,13 +425,12 @@ export default function ImportLeadsPage() {
                   {displayedRows.map((row) => (
                     <tr
                       key={row.index}
-                      className={`border-b border-border last:border-0 ${
-                        !row.isValid
+                      className={`border-b border-border last:border-0 ${!row.isValid
                           ? "bg-red-50/50"
                           : row.isDuplicate
-                          ? "bg-amber-50/50"
-                          : ""
-                      }`}
+                            ? "bg-amber-50/50"
+                            : ""
+                        }`}
                     >
                       <td className="px-4 py-2.5">
                         {!row.isValid ? (

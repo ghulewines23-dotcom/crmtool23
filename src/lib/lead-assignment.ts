@@ -16,14 +16,34 @@ export async function assignLeadToSalesPerson(
 ): Promise<AssignedSalesperson | null> {
   await connectDB();
 
-  // Find all active salespeople in the organization
-  const salespeople = await TeamMember.find({
+  // Find all active salespeople in the organization (excluding Owners)
+  let salespeople = await TeamMember.find({
     organizationId,
-    role: "SALES_PERSON",
     status: "active",
+    role: { $nin: ["FOUNDER", "SERENE_OWNER"] },
+    $or: [
+      { role: "SALES_PERSON" },
+      { secondaryRole: "SALES_PERSON" },
+      { isSalesEligible: true },
+    ],
   })
     .select("_id name")
     .lean();
+
+  // Fallback: If 0 active Sales Persons exist, fall back to active ADMINs (excluding Owners)
+  if (!salespeople || salespeople.length === 0) {
+    salespeople = await TeamMember.find({
+      organizationId,
+      status: "active",
+      role: { $nin: ["FOUNDER", "SERENE_OWNER"] },
+      $or: [
+        { role: "ADMIN" },
+        { secondaryRole: "ADMIN" },
+      ],
+    })
+      .select("_id name")
+      .lean();
+  }
 
   if (!salespeople || salespeople.length === 0) {
     return null;

@@ -7,7 +7,7 @@ import { useAuth } from "@/lib/auth-context";
 import { useCRMData } from "@/lib/crm-data-context";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Button } from "@/components/ui/button";
-import { Plus, X, ExternalLink, Phone, Trash2 } from "lucide-react";
+import { Plus, X, ExternalLink, Phone, Trash2, MessageSquare } from "lucide-react";
 import type { Lead, LeadStatus } from "@/lib/types";
 
 const ALL_STATUSES: { value: LeadStatus; label: string }[] = [
@@ -423,14 +423,26 @@ export default function LeadsPage() {
                       : "—"}
                   </td>
                   <td className="px-4 py-3.5 text-right">
-                    <a
-                      href={`tel:${lead.phone}`}
-                      onClick={(e) => e.stopPropagation()}
-                      className="inline-flex items-center justify-center h-7 w-7 rounded text-muted-foreground hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
-                      title="Call Now"
-                    >
-                      <Phone className="h-3.5 w-3.5" />
-                    </a>
+                    <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+                      {lead.phone && (
+                        <a
+                          href={`https://wa.me/${lead.phone.replace(/[^0-9]/g, "").startsWith("91") || lead.phone.replace(/[^0-9]/g, "").length > 10 ? lead.phone.replace(/[^0-9]/g, "") : "91" + lead.phone.replace(/[^0-9]/g, "")}?text=${encodeURIComponent("Hi, following up on your inquiry...")}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center justify-center h-7 w-7 rounded text-emerald-600 bg-emerald-50 hover:bg-emerald-100 transition-colors"
+                          title="Chat on WhatsApp"
+                        >
+                          <MessageSquare className="h-3.5 w-3.5" />
+                        </a>
+                      )}
+                      <a
+                        href={`tel:${lead.phone}`}
+                        className="inline-flex items-center justify-center h-7 w-7 rounded text-muted-foreground hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
+                        title="Call Now"
+                      >
+                        <Phone className="h-3.5 w-3.5" />
+                      </a>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -485,14 +497,26 @@ export default function LeadsPage() {
                 )}
               </div>
               
-              <a
-                href={`tel:${lead.phone}`}
-                onClick={(e) => e.stopPropagation()}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 text-white font-medium text-[12px] hover:bg-emerald-700 active:scale-95 transition-all shrink-0"
-              >
-                <Phone className="h-3.5 w-3.5" />
-                Call Now
-              </a>
+              <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                {lead.phone && (
+                  <a
+                    href={`https://wa.me/${lead.phone.replace(/[^0-9]/g, "").startsWith("91") || lead.phone.replace(/[^0-9]/g, "").length > 10 ? lead.phone.replace(/[^0-9]/g, "") : "91" + lead.phone.replace(/[^0-9]/g, "")}?text=${encodeURIComponent("Hi, following up on your inquiry...")}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 font-medium text-[12px] border border-emerald-200 hover:bg-emerald-100 transition-all shrink-0"
+                  >
+                    <MessageSquare className="h-3.5 w-3.5" />
+                    WhatsApp
+                  </a>
+                )}
+                <a
+                  href={`tel:${lead.phone}`}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 text-white font-medium text-[12px] hover:bg-emerald-700 active:scale-95 transition-all shrink-0"
+                >
+                  <Phone className="h-3.5 w-3.5" />
+                  Call Now
+                </a>
+              </div>
             </div>
           </div>
         ))}
@@ -685,12 +709,24 @@ function ExcelLeadDetailModal({ lead, onClose }: { lead: Lead; onClose: () => vo
               <span className="text-[12px] font-medium text-muted-foreground font-mono">
                 Imported Row Columns ({entries.length})
               </span>
-              <a
-                href={`tel:${lead.phone}`}
-                className="inline-flex items-center gap-1.5 px-3 py-1 text-[12px] font-medium bg-emerald-600 text-white rounded hover:bg-emerald-700 transition-colors"
-              >
-                <Phone className="h-3 w-3" /> Call {lead.phone}
-              </a>
+              <div className="flex items-center gap-2">
+                {lead.phone && (
+                  <a
+                    href={`https://wa.me/${lead.phone.replace(/[^0-9]/g, "").startsWith("91") || lead.phone.replace(/[^0-9]/g, "").length > 10 ? lead.phone.replace(/[^0-9]/g, "") : "91" + lead.phone.replace(/[^0-9]/g, "")}?text=${encodeURIComponent("Hi, following up on your inquiry...")}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1 text-[12px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 rounded hover:bg-emerald-100 transition-colors"
+                  >
+                    <MessageSquare className="h-3 w-3" /> WhatsApp
+                  </a>
+                )}
+                <a
+                  href={`tel:${lead.phone}`}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 text-[12px] font-medium bg-emerald-600 text-white rounded hover:bg-emerald-700 transition-colors"
+                >
+                  <Phone className="h-3 w-3" /> Call {lead.phone}
+                </a>
+              </div>
             </div>
 
             <table className="w-full text-left text-[13px] border-collapse">

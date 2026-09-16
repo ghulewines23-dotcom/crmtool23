@@ -15,6 +15,8 @@ import {
   FileSpreadsheet,
   ClipboardList,
   Shield,
+  User,
+  BarChart3,
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import type { UserRole } from "@/lib/types";
@@ -46,6 +48,7 @@ const navSections: NavSection[] = [
   {
     title: "Business",
     items: [
+      { label: "Overview", href: "/overview", icon: BarChart3, roles: ADMIN_ROLES },
       { label: "Team", href: "/team", icon: Users, roles: ADMIN_ROLES },
       { label: "Clients", href: "/clients", icon: UserCheck, roles: ADMIN_ROLES },
       { label: "Import Leads", href: "/import-export", icon: FileSpreadsheet, roles: ADMIN_ROLES },
@@ -185,11 +188,9 @@ export function Sidebar({ collapsed, onToggle, className }: SidebarProps) {
             collapsed && "justify-center"
           )}
         >
-          <Avatar className="h-8 w-8 shrink-0">
-            <AvatarFallback className="bg-muted text-xs font-medium text-foreground">
-              {getInitials(user?.name || "U")}
-            </AvatarFallback>
-          </Avatar>
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+            <User className="h-4 w-4" />
+          </div>
           {!collapsed && (
             <div className="flex flex-1 overflow-hidden">
               <div className="flex flex-col min-w-0">

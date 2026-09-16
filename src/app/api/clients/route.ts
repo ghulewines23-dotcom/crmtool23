@@ -63,6 +63,7 @@ export async function POST(request: NextRequest) {
       totalAmount: total,
       amountPaid: paid,
       balanceDue: total - paid,
+      expenses: Number(body.expenses) || 0,
       paymentStatus: body.paymentStatus || "pending",
       dueDate: body.dueDate || "",
       notes: body.notes || "",

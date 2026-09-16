@@ -22,6 +22,7 @@ export interface IClient extends Document {
   totalAmount: number;
   amountPaid: number;
   balanceDue: number;
+  expenses: number;
   paymentStatus: "pending" | "partial" | "paid" | "overdue";
   dueDate: string;
   notes: string;
@@ -58,6 +59,7 @@ const ClientSchema = new Schema<IClient>(
     totalAmount: { type: Number, default: 0 },
     amountPaid: { type: Number, default: 0 },
     balanceDue: { type: Number, default: 0 },
+    expenses: { type: Number, default: 0 },
     paymentStatus: {
       type: String,
       enum: ["pending", "partial", "paid", "overdue"],

@@ -40,6 +40,7 @@ function emptyForm() {
     service: "",
     totalAmount: "",
     amountPaid: "",
+    expenses: "",
     paymentStatus: "pending" as PaymentStatus,
     dueDate: "",
     notes: "",
@@ -87,6 +88,7 @@ export default function ClientsPage() {
       totalAmount: total,
       amountPaid: paid,
       balanceDue: total - paid,
+      expenses: Number(form.expenses) || 0,
       paymentStatus: form.paymentStatus,
       dueDate: form.dueDate.trim(),
       notes: form.notes.trim(),
@@ -171,13 +173,8 @@ export default function ClientsPage() {
                   <td className="px-4 py-3">
                     <Link
                       href={`/clients/${client.id}`}
-                      className="flex items-center gap-3"
+                      className="flex flex-col min-w-0"
                     >
-                      <Avatar className="h-8 w-8 shrink-0">
-                        <AvatarFallback className="bg-muted text-[11px] font-medium text-foreground">
-                          {client.avatar}
-                        </AvatarFallback>
-                      </Avatar>
                       <div className="min-w-0">
                         <p className="text-[13px] font-medium truncate">
                           {client.name}
@@ -449,16 +446,30 @@ export default function ClientsPage() {
                     />
                   </div>
                 </div>
-                <div className="space-y-1.5">
-                  <Label>Balance</Label>
-                  <Input
-                    value={`₹${(
-                      (Number(form.totalAmount) || 0) -
-                      (Number(form.amountPaid) || 0)
-                    ).toLocaleString("en-IN")}`}
-                    readOnly
-                    className="h-9 text-[13px] bg-muted"
-                  />
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label>Balance Due</Label>
+                    <Input
+                      value={`₹${(
+                        (Number(form.totalAmount) || 0) -
+                        (Number(form.amountPaid) || 0)
+                      ).toLocaleString("en-IN")}`}
+                      readOnly
+                      className="h-9 text-[13px] bg-muted font-medium"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Client Expenses / Cost (₹)</Label>
+                    <Input
+                      type="number"
+                      value={form.expenses}
+                      onChange={(e) =>
+                        setForm({ ...form, expenses: e.target.value })
+                      }
+                      placeholder="e.g. 5000 (Cost incurred)"
+                      className="h-9 text-[13px]"
+                    />
+                  </div>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="space-y-1.5">

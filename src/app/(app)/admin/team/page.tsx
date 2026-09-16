@@ -37,8 +37,8 @@ export default function AdminTeamPage() {
 
   const headerRef = useRef<HTMLInputElement>(null);
 
-  const [form, setForm] = useState({ name: "", email: "", phone: "", role: "SALES_PERSON" as TeamMember["role"], isSalesEligible: true });
-  const [editForm, setEditForm] = useState({ name: "", email: "", phone: "", role: "SALES_PERSON" as TeamMember["role"], isSalesEligible: true });
+  const [form, setForm] = useState({ name: "", email: "", phone: "", role: "SALES_PERSON" as TeamMember["role"], secondaryRole: "", isSalesEligible: true });
+  const [editForm, setEditForm] = useState({ name: "", email: "", phone: "", role: "SALES_PERSON" as TeamMember["role"], secondaryRole: "", isSalesEligible: true });
 
   const filtered = teamMembers.filter((m) => {
     if (statusFilter === "active" && m.status !== "active") return false;
@@ -92,14 +92,15 @@ export default function AdminTeamPage() {
 
   async function handleAdd() {
     if (!form.name || !form.email) return;
+    const isSales = form.secondaryRole === "SALES_PERSON" || form.role === "SALES_PERSON" || form.isSalesEligible;
     await addTeamMembers([{
       id: "", name: form.name, email: form.email, phone: form.phone,
       role: form.role, avatar: "", activeLeads: 0, activeTasks: 0,
       completedTasks: 0, projects: 0, status: "active", organizationId: "",
-      isSalesEligible: form.isSalesEligible,
-      secondaryRole: form.isSalesEligible ? "SALES_PERSON" : "",
+      isSalesEligible: isSales,
+      secondaryRole: form.secondaryRole,
     }]);
-    setForm({ name: "", email: "", phone: "", role: "SALES_PERSON", isSalesEligible: true });
+    setForm({ name: "", email: "", phone: "", role: "SALES_PERSON", secondaryRole: "", isSalesEligible: true });
     setAddOpen(false);
   }
 
@@ -110,6 +111,7 @@ export default function AdminTeamPage() {
       email: member.email,
       phone: member.phone,
       role: member.role,
+      secondaryRole: member.secondaryRole || "",
       isSalesEligible: member.isSalesEligible !== undefined ? member.isSalesEligible : true,
     });
     setEditOpen(true);
@@ -117,13 +119,14 @@ export default function AdminTeamPage() {
 
   async function handleUpdate() {
     if (!editing || !editForm.name || !editForm.email) return;
+    const isSales = editForm.secondaryRole === "SALES_PERSON" || editForm.role === "SALES_PERSON" || editForm.isSalesEligible;
     await updateTeamMember(editing.id, {
       name: editForm.name,
       email: editForm.email,
       phone: editForm.phone,
       role: editForm.role,
-      isSalesEligible: editForm.isSalesEligible,
-      secondaryRole: editForm.isSalesEligible ? "SALES_PERSON" : "",
+      isSalesEligible: isSales,
+      secondaryRole: editForm.secondaryRole,
     });
     setEditOpen(false);
     setEditing(null);
@@ -284,20 +287,15 @@ export default function AdminTeamPage() {
                     />
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-8 w-8 shrink-0">
-                        <AvatarFallback className="bg-muted text-[11px] font-medium text-foreground">{member.avatar}</AvatarFallback>
-                      </Avatar>
-                      <div className="flex flex-col">
-                        <span className="text-[13px] font-medium flex items-center gap-1.5">
-                          {member.name}
-                          {(member.role === "FOUNDER" || member.role === "SERENE_OWNER") && (
-                            <span className="text-[10px] font-semibold bg-amber-100 text-amber-800 px-1.5 py-0.2 rounded border border-amber-200">
-                              Owner
-                            </span>
-                          )}
-                        </span>
-                      </div>
+                    <div className="flex flex-col">
+                      <span className="text-[13px] font-medium flex items-center gap-1.5">
+                        {member.name}
+                        {(member.role === "FOUNDER" || member.role === "SERENE_OWNER") && (
+                          <span className="text-[10px] font-semibold bg-amber-100 text-amber-800 px-1.5 py-0.2 rounded border border-amber-200">
+                            Owner
+                          </span>
+                        )}
+                      </span>
                     </div>
                   </td>
                   <td className="px-4 py-3 text-[13px] text-muted-foreground hidden md:table-cell">{member.email}</td>
@@ -342,21 +340,40 @@ export default function AdminTeamPage() {
             <div className="space-y-1.5"><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="email@example.com" className="h-9 text-[13px]" /></div>
             <div className="space-y-1.5"><Label>Phone</Label><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+91 XXXXX XXXXX" className="h-9 text-[13px]" /></div>
             <div className="space-y-1.5">
-              <Label>Role</Label>
+              <Label>Primary Role</Label>
               <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as TeamMember["role"] })} className="h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-[13px] outline-none">
-                <option value="SALES_PERSON">Sales Person</option><option value="ADMIN">Admin</option><option value="FOUNDER">Founder</option>
+                <option value="SALES_PERSON">Sales Person</option><option value="ADMIN">Admin</option><option value="FOUNDER">Founder / Owner</option>
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Secondary Role (Optional Dual Role)</Label>
+              <select
+                value={form.secondaryRole}
+                onChange={(e) => {
+                  const sec = e.target.value;
+                  setForm({
+                    ...form,
+                    secondaryRole: sec,
+                    isSalesEligible: sec === "SALES_PERSON" ? true : form.isSalesEligible,
+                  });
+                }}
+                className="h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-[13px] outline-none"
+              >
+                <option value="">None (No Secondary Role)</option>
+                <option value="SALES_PERSON">Sales Person (Handles Sales & Leads)</option>
+                <option value="ADMIN">Admin (Team & Settings)</option>
               </select>
             </div>
             <div className="flex items-center gap-2 pt-1 border-t pt-3">
               <input
                 type="checkbox"
                 id="add-sales-eligible"
-                checked={form.isSalesEligible}
+                checked={form.isSalesEligible || form.secondaryRole === "SALES_PERSON"}
                 onChange={(e) => setForm({ ...form, isSalesEligible: e.target.checked })}
                 className="h-4 w-4 rounded border-border accent-primary cursor-pointer"
               />
               <Label htmlFor="add-sales-eligible" className="text-[12px] font-medium cursor-pointer">
-                Also handles Sales (Auto-assign lead shares to this member)
+                Also handles Sales (Include in round-robin lead auto-assignment)
               </Label>
             </div>
           </div>
@@ -376,21 +393,40 @@ export default function AdminTeamPage() {
             <div className="space-y-1.5"><Label>Email</Label><Input type="email" value={editForm.email} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} placeholder="email@example.com" className="h-9 text-[13px]" /></div>
             <div className="space-y-1.5"><Label>Phone</Label><Input value={editForm.phone} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} placeholder="+91 XXXXX XXXXX" className="h-9 text-[13px]" /></div>
             <div className="space-y-1.5">
-              <Label>Role</Label>
+              <Label>Primary Role</Label>
               <select value={editForm.role} onChange={(e) => setEditForm({ ...editForm, role: e.target.value as TeamMember["role"] })} className="h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-[13px] outline-none">
-                <option value="SALES_PERSON">Sales Person</option><option value="ADMIN">Admin</option><option value="FOUNDER">Founder</option>
+                <option value="SALES_PERSON">Sales Person</option><option value="ADMIN">Admin</option><option value="FOUNDER">Founder / Owner</option>
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Secondary Role (Optional Dual Role)</Label>
+              <select
+                value={editForm.secondaryRole}
+                onChange={(e) => {
+                  const sec = e.target.value;
+                  setEditForm({
+                    ...editForm,
+                    secondaryRole: sec,
+                    isSalesEligible: sec === "SALES_PERSON" ? true : editForm.isSalesEligible,
+                  });
+                }}
+                className="h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-[13px] outline-none"
+              >
+                <option value="">None (No Secondary Role)</option>
+                <option value="SALES_PERSON">Sales Person (Handles Sales & Leads)</option>
+                <option value="ADMIN">Admin (Team & Settings)</option>
               </select>
             </div>
             <div className="flex items-center gap-2 pt-1 border-t pt-3">
               <input
                 type="checkbox"
                 id="edit-sales-eligible"
-                checked={editForm.isSalesEligible}
+                checked={editForm.isSalesEligible || editForm.secondaryRole === "SALES_PERSON"}
                 onChange={(e) => setEditForm({ ...editForm, isSalesEligible: e.target.checked })}
                 className="h-4 w-4 rounded border-border accent-primary cursor-pointer"
               />
               <Label htmlFor="edit-sales-eligible" className="text-[12px] font-medium cursor-pointer">
-                Also handles Sales (Auto-assign lead shares to this member)
+                Also handles Sales (Include in round-robin lead auto-assignment)
               </Label>
             </div>
           </div>

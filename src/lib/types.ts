@@ -168,6 +168,7 @@ export interface Client {
   totalAmount: number;
   amountPaid: number;
   balanceDue: number;
+  expenses?: number;
   paymentStatus: PaymentStatus;
   dueDate: string;
   notes: string;

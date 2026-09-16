@@ -67,6 +67,7 @@ export async function PUT(
         totalAmount: total,
         amountPaid: paid,
         balanceDue: total - paid,
+        ...(body.expenses !== undefined && { expenses: Number(body.expenses) }),
         paymentStatus: body.paymentStatus,
         dueDate: body.dueDate,
         notes: body.notes,

@@ -81,25 +81,30 @@ export async function POST(
     const countBefore = await Lead.countDocuments({ organizationId });
     console.log(`[IMPORT CONFIRM] Lead count BEFORE insert: ${countBefore}`);
 
-    // Fetch active sales agents for equal round-robin distribution
+    // Fetch active sales agents for equal round-robin distribution (excl. Owners)
     let salesAgents = await TeamMember.find({
       organizationId,
       status: "active",
+      role: { $nin: ["FOUNDER", "SERENE_OWNER"] },
       $or: [
         { role: "SALES_PERSON" },
-        { isSalesEligible: true },
         { secondaryRole: "SALES_PERSON" },
+        { isSalesEligible: true },
       ],
     })
       .select("_id name")
       .lean();
 
-    // Fallback: If no explicit sales agents found, include active ADMINs
+    // Fallback: If 0 active Sales Persons exist, assign to active ADMINs (excl. Owners)
     if (salesAgents.length === 0) {
       salesAgents = await TeamMember.find({
         organizationId,
         status: "active",
-        role: { $in: ["SALES_PERSON", "ADMIN"] },
+        role: { $nin: ["FOUNDER", "SERENE_OWNER"] },
+        $or: [
+          { role: "ADMIN" },
+          { secondaryRole: "ADMIN" },
+        ],
       })
         .select("_id name")
         .lean();

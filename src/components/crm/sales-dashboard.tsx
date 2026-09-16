@@ -144,7 +144,7 @@ export default function SalesDashboard() {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold tracking-tight text-foreground">
-              {getGreeting()}, {user?.name} 👋
+              {getGreeting()}, {user?.name}
             </h1>
             <span
               className={cn(
@@ -487,16 +487,16 @@ export default function SalesDashboard() {
                   >
                     {/* Rank Badge */}
                     <td className="px-4 py-3.5 text-center font-bold">
-                      {index === 0 && <span className="text-lg">🥇</span>}
-                      {index === 1 && <span className="text-lg">🥈</span>}
-                      {index === 2 && <span className="text-lg">🥉</span>}
-                      {index > 2 && <span className="text-muted-foreground font-mono">#{index + 1}</span>}
+                      {index === 0 && <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-amber-100 text-amber-800 text-[11px] font-bold">1</span>}
+                      {index === 1 && <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-slate-200 text-slate-800 text-[11px] font-bold">2</span>}
+                      {index === 2 && <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-amber-700/10 text-amber-900 text-[11px] font-bold">3</span>}
+                      {index > 2 && <span className="text-muted-foreground font-mono text-[12px]">#{index + 1}</span>}
                     </td>
 
                     {/* Agent Name */}
                     <td className="px-4 py-3.5">
                       <div>
-                        <p className="font-semibold text-foreground flex items-center gap-1.5">
+                        <p className="font-semibold text-foreground flex items-center gap-1.5 text-[13px]">
                           {agent.name}
                           {isCurrent && (
                             <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.2 rounded font-normal">
@@ -509,40 +509,40 @@ export default function SalesDashboard() {
                     </td>
 
                     {/* Total Leads */}
-                    <td className="px-4 py-3.5 text-center font-medium">
+                    <td className="px-4 py-3.5 text-center font-medium text-[13px]">
                       {agent.totalLeads}
                     </td>
 
                     {/* Won Count */}
-                    <td className="px-4 py-3.5 text-center font-bold text-emerald-600">
+                    <td className="px-4 py-3.5 text-center font-bold text-emerald-600 text-[13px]">
                       {agent.wonCount}
                     </td>
 
                     {/* Conversion Rate */}
-                    <td className="px-4 py-3.5 text-center font-medium">
+                    <td className="px-4 py-3.5 text-center font-medium text-[13px]">
                       <span className="px-2 py-0.5 rounded bg-muted text-foreground">
                         {agent.conversionRate}%
                       </span>
                     </td>
 
                     {/* Revenue */}
-                    <td className="px-4 py-3.5 text-right font-bold text-foreground">
+                    <td className="px-4 py-3.5 text-right font-bold text-foreground text-[13px]">
                       {formatCurrency(agent.revenue)}
                     </td>
 
                     {/* Performance Status */}
                     <td className="px-4 py-3.5 text-center">
                       {agent.wonCount >= 5 ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-800">
-                          🌟 Top Performer
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                          <Award className="h-3 w-3" /> Top Performer
                         </span>
                       ) : agent.wonCount > 0 ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-100 text-blue-800">
-                          👍 Active
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-blue-100 text-blue-800 border border-blue-200">
+                          <CheckCircle2 className="h-3 w-3" /> Active
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-zinc-100 text-zinc-700">
-                          ⏳ In Pipeline
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-zinc-100 text-zinc-700 border border-zinc-200">
+                          <Clock className="h-3 w-3 text-zinc-500" /> In Pipeline
                         </span>
                       )}
                     </td>

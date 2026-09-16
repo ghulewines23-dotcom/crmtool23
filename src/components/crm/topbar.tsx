@@ -230,11 +230,9 @@ export function Topbar({ onMenuToggle, className }: TopbarProps) {
             onClick={() => setDropdownOpen(!dropdownOpen)}
             className="flex items-center gap-2 rounded-lg py-1.5 pl-1.5 pr-2 transition-colors hover:bg-[#F4F4F5]"
           >
-            <Avatar className="h-7 w-7">
-              <AvatarFallback className="bg-[#F4F4F5] text-[11px] font-medium text-foreground">
-                {getInitials(user?.name || "U")}
-              </AvatarFallback>
-            </Avatar>
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-secondary text-muted-foreground">
+              <User className="h-4 w-4" />
+            </div>
             <span className="hidden text-[13px] font-medium text-foreground sm:block">
               {user?.name?.split(" ")[0] || "User"}
             </span>
