@@ -1,0 +1,76 @@
+▲ Next.js 16.3.5 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.1.77:3000
+- Environments: .env.local
+✓ Ready in 333ms
+✓ Running next.config.ts took 33ms
+
+[browser] A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+https://react.dev/link/hydration-mismatch
+
+  ...
+    <HotReload globalError={[...]} webSocket={WebSocket} staticIndicatorState={{pathname:null, ...}}>
+      <AppDevOverlayErrorBoundary globalError={[...]}>
+        <ReplaySsrOnlyErrors>
+        <DevRootHTTPAccessFallbackBoundary>
+          <HTTPAccessFallbackBoundary notFound={<NotAllowedRootHTTPFallbackError>}>
+            <HTTPAccessFallbackErrorBoundary pathname="/login" notFound={<NotAllowedRootHTTPFallbackError>} ...>
+              <RedirectBoundary>
+                <RedirectErrorBoundary router={{...}}>
+                  <Head>
+                  <__next_root_layout_boundary__>
+                    <SegmentViewNode type="layout" pagePath="layout.tsx">
+                      <SegmentTrieNode>
+                      <link>
+                      <script>
+                      <RootLayout>
+                        <html lang="en">
+                          <head>
+                          <body
+                            className="antialiased"
+-                           cz-shortcut-listen="true"
+                          >
+                  ...
+ 
+ GET /login 200 in 406ms (next.js: 82ms, proxy.ts: 146ms, application-code: 178ms)
+ GET /api/auth/session 401 in 373ms (next.js: 63ms, proxy.ts: 17ms, application-code: 293ms)
+ GET /api/auth/session 401 in 22ms (next.js: 7ms, proxy.ts: 12ms, application-code: 2ms)
+(node:6132) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"email":1} for model "TeamMember". This is often due to declaring an index using both "index: true" and "schema.index()". MongoDB will not create the duplicate index and options on the duplicate definition (such as expireAfterSeconds or unique) will not be applied. Please remove the duplicate index definition.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ POST /api/auth/login 200 in 1467ms (next.js: 51ms, proxy.ts: 7ms, application-code: 1409ms)
+ GET /api/auth/session 200 in 56ms (next.js: 4ms, proxy.ts: 7ms, application-code: 44ms)
+[Email] No RESEND_API_KEY configured. Email not sent.
+[Email] To: ayushcodes30@gmail.com
+[Email] Subject: Your Serene CRM Verification Code
+[Email] (Set RESEND_API_KEY in .env.local to enable email delivery)
+ POST /api/auth/login 200 in 567ms (next.js: 2ms, proxy.ts: 8ms, application-code: 557ms)
+ POST /api/auth/otp/verify 401 in 176ms (next.js: 51ms, proxy.ts: 6ms, application-code: 120ms)
+ GET /api/auth/session 200 in 56ms (next.js: 6ms, proxy.ts: 8ms, application-code: 43ms)
+[Email] No RESEND_API_KEY configured. Email not sent.
+[Email] To: ayushcodes30@gmail.com
+[Email] Subject: Your Serene CRM Verification Code
+[Email] (Set RESEND_API_KEY in .env.local to enable email delivery)
+ POST /api/auth/login 200 in 569ms (next.js: 6ms, proxy.ts: 8ms, application-code: 555ms)
+(node:6132) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+ POST /api/auth/otp/verify 200 in 212ms (next.js: 4ms, proxy.ts: 9ms, application-code: 199ms)
+ GET /api/auth/session 401 in 52ms (next.js: 4ms, proxy.ts: 7ms, application-code: 41ms)
+ GET /api/auth/session 200 in 54ms (next.js: 5ms, proxy.ts: 7ms, application-code: 43ms)
+ POST /api/auth/login 401 in 482ms (next.js: 4ms, proxy.ts: 8ms, application-code: 469ms)
+[Email] No RESEND_API_KEY configured. Email not sent.
+[Email] To: ayushcodes30@gmail.com
+[Email] Subject: Reset Your Serene CRM Password
+[Email] (Set RESEND_API_KEY in .env.local to enable email delivery)
+[PasswordReset] Failed to send reset email to ayushcodes30@gmail.com. Check RESEND_API_KEY configuration.
+ POST /api/auth/forgot-password 200 in 216ms (next.js: 44ms, proxy.ts: 8ms, application-code: 163ms)
+ POST /api/auth/reset-password 400 in 259ms (next.js: 209ms, proxy.ts: 7ms, application-code: 42ms)
+ POST /api/auth/login 401 in 98ms (next.js: 4ms, proxy.ts: 6ms, application-code: 88ms)
+^C
