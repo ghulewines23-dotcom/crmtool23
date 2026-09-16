@@ -64,7 +64,7 @@ export async function PUT(
         ...(body.email && { email: body.email }),
         ...(body.phone !== undefined && { phone: body.phone }),
         ...(body.role && { role: body.role }),
-        ...(body.status && ["active", "inactive"].includes(body.status) && { status: body.status }),
+        ...(body.status && ["active", "inactive", "pending_access"].includes(body.status) && { status: body.status }),
         ...(body.isSalesEligible !== undefined && { isSalesEligible: body.isSalesEligible }),
         ...(body.secondaryRole !== undefined && { secondaryRole: body.secondaryRole }),
         ...(initials && { avatar: initials }),
@@ -74,6 +74,26 @@ export async function PUT(
 
     if (!member) {
       return jsonError("Team member not found", 404);
+    }
+
+    // Audit log for approval (pending_access -> active)
+    if (
+      body.status === "active" &&
+      currentMember.status === "pending_access"
+    ) {
+      await logAudit({
+        actorId: auth.user.id,
+        actorEmail: auth.user.email,
+        organizationId: auth.user.organizationId,
+        action: AUDIT_ACTIONS.USER_APPROVED,
+        targetType: "User",
+        targetId: id,
+        metadata: {
+          previousStatus: currentMember.status,
+          newStatus: body.status,
+          targetEmail: currentMember.email,
+        },
+      });
     }
 
     // Audit log for role changes
@@ -93,8 +113,12 @@ export async function PUT(
       });
     }
 
-    // Audit log for status changes
-    if (body.status && body.status !== currentMember.status) {
+    // Audit log for status changes (approval already logged above)
+    if (
+      body.status &&
+      body.status !== currentMember.status &&
+      currentMember.status !== "pending_access"
+    ) {
       await logAudit({
         actorId: auth.user.id,
         actorEmail: auth.user.email,

@@ -26,6 +26,32 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const activeOnly = searchParams.get("activeOnly") === "true";
+    const pendingOnly = searchParams.get("pending") === "true";
+
+    const baseQuery: Record<string, unknown> = {
+      organizationId: auth.user.organizationId,
+    };
+
+    // Pending approvals are only visible to org owners (FOUNDER)
+    if (pendingOnly) {
+      if (auth.user.role !== "FOUNDER") {
+        return jsonError("Only the organization owner can view pending approvals", 403);
+      }
+      const pendingMembers = await TeamMember.find({
+        ...baseQuery,
+        status: "pending_access",
+      })
+        .select("-passwordHash")
+        .sort({ createdAt: -1 })
+        .lean();
+
+      return Response.json({
+        success: true,
+        members: pendingMembers.map((m) => ({ ...m, id: String(m._id) })),
+      }, {
+        headers: { "Cache-Control": "no-store, no-cache, must-revalidate" },
+      });
+    }
 
     const query: Record<string, unknown> = {
       $or: [
@@ -33,6 +59,7 @@ export async function GET(request: NextRequest) {
         { "organizations.organizationId": auth.user.organizationId },
         { _id: auth.user.id },
       ],
+      status: { $ne: "pending_access" },
     };
 
     if (activeOnly) {

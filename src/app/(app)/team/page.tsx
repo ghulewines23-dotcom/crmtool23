@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from "react"
 import { useAuth } from "@/lib/auth-context"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Button } from "@/components/ui/button"
+import { Check, Clock } from "lucide-react"
 
 interface TeamMember { id: string; name: string; email: string; phone: string; role: string; avatar: string; status: string; activeLeads: number }
 
@@ -11,19 +13,51 @@ function formatRole(r: string) { return r.split("_").map((w) => w.charAt(0).toUp
 export default function TeamPage() {
   const { user } = useAuth()
   const [members, setMembers] = useState<TeamMember[]>([])
+  const [pending, setPending] = useState<TeamMember[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
+  const [approving, setApproving] = useState<string | null>(null)
+
+  const isFounder = user?.role === "FOUNDER"
 
   const fetchMembers = useCallback(async () => {
     try {
       const res = await fetch("/api/team", { credentials: "same-origin" })
       const data = await res.json()
-      if (data.success) setMembers(data.members.filter((m: TeamMember) => m.role !== "FOUNDER" && m.role !== "SERENE_OWNER"))
+      // Team tab shows only APPROVED (active) members — never pending or inactive
+      if (data.success) setMembers(data.members.filter((m: TeamMember) => m.status === "active" && m.role !== "FOUNDER" && m.role !== "SERENE_OWNER"))
     } catch { }
     setLoading(false)
   }, [])
 
-  useEffect(() => { fetchMembers() }, [fetchMembers])
+  const fetchPending = useCallback(async () => {
+    if (!isFounder) return
+    try {
+      const res = await fetch("/api/team?pending=true", { credentials: "same-origin" })
+      const data = await res.json()
+      if (data.success) setPending(data.members)
+    } catch { }
+  }, [isFounder])
+
+  const approveMember = useCallback(async (id: string) => {
+    setApproving(id)
+    try {
+      const res = await fetch(`/api/team/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ status: "active" }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setPending((prev) => prev.filter((m) => m.id !== id))
+        await fetchMembers()
+      }
+    } catch { }
+    setApproving(null)
+  }, [fetchMembers])
+
+  useEffect(() => { fetchMembers(); fetchPending() }, [fetchMembers, fetchPending])
 
   const filtered = members.filter((m) => m.name.toLowerCase().includes(search.toLowerCase()) || m.email.toLowerCase().includes(search.toLowerCase()))
 
@@ -40,6 +74,35 @@ export default function TeamPage() {
         <div className="border-b border-border px-4 py-3">
           <input type="text" placeholder="Search team members..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 w-full max-w-xs rounded-md border border-border bg-white px-3 text-[12px] outline-none placeholder:text-muted-foreground focus:border-foreground/30" />
         </div>
+
+        {/* Pending Approvals — only the org owner can approve new members */}
+        {isFounder && pending.length > 0 && (
+          <div className="border-b border-border bg-amber-50/50 px-4 py-3">
+            <div className="flex items-center gap-1.5 text-[12px] font-semibold text-amber-700">
+              <Clock className="h-3.5 w-3.5" />
+              Pending Approvals ({pending.length})
+            </div>
+            <div className="mt-2 space-y-2">
+              {pending.map((m) => (
+                <div key={m.id} className="flex items-center justify-between gap-3 rounded-md border-amber-200 bg-white px-3 py-2">
+                  <div className="min-w-0">
+                    <p className="truncate text-[13px] font-medium">{m.name}</p>
+                    <p className="truncate text-[11px] text-muted-foreground">{m.email} · {formatRole(m.role)}</p>
+                  </div>
+                  <Button
+                    size="sm"
+                    className="h-7 shrink-0 gap-1 text-[12px]"
+                    onClick={() => approveMember(m.id)}
+                    disabled={approving === m.id}
+                  >
+                    <Check className="h-3.5 w-3.5" />
+                    {approving === m.id ? "Approving..." : "Approve"}
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="overflow-x-auto">
           <table className="w-full">

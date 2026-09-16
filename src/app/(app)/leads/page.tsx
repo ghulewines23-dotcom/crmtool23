@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef, useCallback, useEffect } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { useCRMData } from "@/lib/crm-data-context";
 import { Button } from "@/components/ui/button";
@@ -89,16 +89,62 @@ function WheelColumn({
 }) {
   const currentIndex = options.findIndex((o) => o.value === value);
   const activeIdx = currentIndex >= 0 ? currentIndex : 0;
+  const containerRef = useRef<HTMLDivElement>(null);
+  const touchStartY = useRef(0);
+  const lastScrollTime = useRef(0);
+
+  const goToPrev = useCallback(() => {
+    const prev = options[(activeIdx - 1 + options.length) % options.length];
+    onChange(prev.value);
+  }, [activeIdx, options, onChange]);
+
+  const goToNext = useCallback(() => {
+    const next = options[(activeIdx + 1) % options.length];
+    onChange(next.value);
+  }, [activeIdx, options, onChange]);
+
+  const handleWheel = useCallback(
+    (e: React.WheelEvent) => {
+      e.preventDefault();
+      const now = Date.now();
+      if (now - lastScrollTime.current < 80) return;
+      lastScrollTime.current = now;
+      if (e.deltaY > 0) goToNext();
+      else goToPrev();
+    },
+    [goToNext, goToPrev]
+  );
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartY.current = e.touches[0].clientY;
+  }, []);
+
+  const handleTouchEnd = useCallback(
+    (e: React.TouchEvent) => {
+      const diff = touchStartY.current - e.changedTouches[0].clientY;
+      if (Math.abs(diff) > 15) {
+        if (diff > 0) goToNext();
+        else goToPrev();
+      }
+    },
+    [goToNext, goToPrev]
+  );
 
   const prev = options[(activeIdx - 1 + options.length) % options.length];
   const curr = options[activeIdx];
   const next = options[(activeIdx + 1) % options.length];
 
   return (
-    <div className="flex flex-col items-center justify-center select-none py-1 min-w-[48px]">
+    <div
+      ref={containerRef}
+      className="flex flex-col items-center justify-center select-none py-1 min-w-[48px] touch-none"
+      onWheel={handleWheel}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
       <button
         type="button"
-        onClick={() => onChange(prev.value)}
+        onClick={goToPrev}
         className="text-[13px] font-normal text-zinc-400 hover:text-zinc-200 py-1 transition-colors"
       >
         {prev.label}
@@ -110,7 +156,7 @@ function WheelColumn({
 
       <button
         type="button"
-        onClick={() => onChange(next.value)}
+        onClick={goToNext}
         className="text-[13px] font-normal text-zinc-400 hover:text-zinc-200 py-1 transition-colors"
       >
         {next.label}
@@ -141,6 +187,13 @@ function ScrollDateTimePickerModal({
   const [minute, setMinute] = useState("02");
   const [ampmVal, setAmpmVal] = useState("pm");
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const handleSet = () => {
@@ -155,7 +208,7 @@ function ScrollDateTimePickerModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs overflow-hidden">
       <div className="bg-[#292c34] text-white rounded-[28px] p-6 shadow-2xl w-full max-w-sm border border-zinc-700/60 space-y-6">
         <div>
           <h3 className="text-xl font-normal text-white tracking-tight">Set date and time</h3>
@@ -222,12 +275,13 @@ function LeadDetailExpandedContent({
   onEdit,
 }: {
   lead: Lead;
-  onStatusChange: (leadId: string, status: LeadStatus, followupDate?: string) => Promise<void>;
+  onStatusChange: (leadId: string, status: LeadStatus, followupDate?: string, notes?: string) => Promise<void>;
   onDelete: (leadId: string) => void;
   onEdit: (lead: Lead) => void;
 }) {
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [showDatePickerModal, setShowDatePickerModal] = useState(false);
+  const [followupNotes, setFollowupNotes] = useState(lead.notes || "");
 
   const handleStatusClick = async (status: LeadStatus) => {
     if (lead.status === status || updatingStatus) return;
@@ -238,14 +292,22 @@ function LeadDetailExpandedContent({
 
   const handleSetDateTime = async (isoDateTimeStr: string) => {
     setUpdatingStatus(true);
-    await onStatusChange(lead.id, lead.status, isoDateTimeStr);
+    await onStatusChange(lead.id, lead.status, isoDateTimeStr, followupNotes);
     setUpdatingStatus(false);
   };
 
   const handleClearDateTime = async () => {
     setUpdatingStatus(true);
-    await onStatusChange(lead.id, lead.status, "");
+    await onStatusChange(lead.id, lead.status, "", followupNotes);
     setUpdatingStatus(false);
+  };
+
+  const handleNotesBlur = async () => {
+    if (followupNotes !== (lead.notes || "")) {
+      setUpdatingStatus(true);
+      await onStatusChange(lead.id, lead.status, undefined, followupNotes);
+      setUpdatingStatus(false);
+    }
   };
 
   // Format arrival date & time
@@ -290,6 +352,19 @@ function LeadDetailExpandedContent({
           <Clock className="h-3.5 w-3.5 text-zinc-600" />
           <span>{followupText ? `Follow-up: ${followupText}` : "Set date & time"}</span>
         </button>
+      </div>
+
+      {/* Notes Input */}
+      <div>
+        <textarea
+          value={followupNotes}
+          onChange={(e) => setFollowupNotes(e.target.value)}
+          onBlur={handleNotesBlur}
+          placeholder="Add notes..."
+          rows={2}
+          className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-[12px] text-zinc-700 placeholder:text-zinc-400 outline-none resize-none focus:border-zinc-400 focus:bg-white transition-all"
+          onClick={(e) => e.stopPropagation()}
+        />
       </div>
 
       {/* Footer Bar Actions */}
@@ -376,7 +451,7 @@ function SingleLeadCard({
   lead: Lead;
   isExpanded: boolean;
   onToggleExpand: () => void;
-  onStatusChange: (leadId: string, status: LeadStatus, followupDate?: string) => Promise<void>;
+  onStatusChange: (leadId: string, status: LeadStatus, followupDate?: string, notes?: string) => Promise<void>;
   onDelete: (leadId: string) => void;
   onEdit: (lead: Lead) => void;
   isSelected?: boolean;
@@ -425,13 +500,16 @@ function SingleLeadCard({
               <h3 className="font-semibold text-[13px] text-slate-900 tracking-tight leading-snug truncate">
                 {lead.company || lead.name || "Untitled"}
               </h3>
-              <span className="inline-flex items-center rounded-md bg-slate-900 text-white px-1.5 py-0.5 text-[9px] font-semibold tracking-wide shrink-0">
-                {lead.category || "General"}
-              </span>
             </div>
             {subtitleInfo && (
               <p className="text-[11px] text-slate-400 mt-0.5 truncate">{subtitleInfo}</p>
             )}
+          </div>
+          {/* Category badge — inline on mobile, centered in the header on PC */}
+          <div className="flex sm:flex-1 justify-center">
+            <span className="inline-flex items-center rounded-md bg-slate-900 text-white px-1.5 py-0.5 text-[9px] font-semibold tracking-wide shrink-0">
+              {lead.category || "General"}
+            </span>
           </div>
         </div>
 
@@ -613,10 +691,11 @@ export default function LeadsPage() {
     setBulkDeleting(false);
   };
 
-  const handleStatusChange = async (leadId: string, newStatus: LeadStatus, followupDate?: string) => {
+  const handleStatusChange = async (leadId: string, newStatus: LeadStatus, followupDate?: string, notes?: string) => {
     try {
       const payload: Record<string, unknown> = { status: newStatus };
       if (followupDate !== undefined) payload.nextFollowup = followupDate;
+      if (notes !== undefined) payload.notes = notes;
 
       const res = await fetch(`/api/leads/${leadId}`, {
         method: "PUT",
