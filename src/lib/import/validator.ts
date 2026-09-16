@@ -18,44 +18,10 @@ export function validateLead(lead: MappedRow, rowIndex: number): ValidationResul
   const errors: ValidationError[] = [];
   const warnings: ValidationError[] = [];
 
-  const hasRequirement = lead.requirement && lead.requirement.trim() !== "";
-  const hasPhone = lead.phone && lead.phone.trim() !== "";
-  const hasCompany = lead.company && lead.company.trim() !== "";
-
-  // A lead is valid if it has requirement + company + phone
-  const hasAllRequiredFields = hasRequirement && hasPhone && hasCompany;
-
-  if (!hasAllRequiredFields) {
-    const missing: string[] = [];
-    if (!hasRequirement) missing.push("requirement");
-    if (!hasCompany) missing.push("company");
-    if (!hasPhone) missing.push("phone");
-    errors.push({
-      field: "general",
-      message: `Row ${rowIndex + 1}: Missing required fields: ${missing.join(", ")}`,
-    });
-  }
-
-  // Phone format warning (not error)
-  if (hasPhone && !PHONE_REGEX.test(lead.phone.replace(/[\s\-()]/g, ""))) {
-    warnings.push({
-      field: "phone",
-      message: `Row ${rowIndex + 1}: Phone number format may be invalid`,
-    });
-  }
-
-  // Email format warning (not error)
-  const hasEmail = lead.email && lead.email.trim() !== "";
-  if (hasEmail && !EMAIL_REGEX.test(lead.email)) {
-    warnings.push({
-      field: "email",
-      message: `Row ${rowIndex + 1}: Email format appears invalid`,
-    });
-  }
-
+  // All rows are accepted as valid
   return {
-    isValid: errors.length === 0,
-    errors,
+    isValid: true,
+    errors: [],
     warnings,
   };
 }

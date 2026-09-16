@@ -136,7 +136,7 @@ export default function ImportLeadsPage() {
     try {
       // Send valid rows directly in the body — no in-memory Map dependency
       const validRows = (job.preview || [])
-        .filter((row) => row.isValid && !row.isDuplicate)
+        .filter((row) => !row.isDuplicate)
         .map((row) => ({
           name: row.name,
           phone: row.phone,
