@@ -12,6 +12,16 @@ interface PlatformUser {
   role: string
   status: string
   createdAt: string
+  rejectedAt?: string | null
+}
+
+const REJECTION_RETENTION_DAYS = 5
+/** Whole days left before a rejected user is auto-deleted. */
+function daysLeft(rejectedAt?: string | null): number {
+  if (!rejectedAt) return REJECTION_RETENTION_DAYS
+  const elapsedMs = Date.now() - new Date(rejectedAt).getTime()
+  const left = REJECTION_RETENTION_DAYS - Math.floor(elapsedMs / (24 * 60 * 60 * 1000))
+  return Math.max(0, left)
 }
 
 function formatRole(role: string): string {
@@ -85,14 +95,14 @@ export default function UsersPage() {
     } catch { /* silent */ }
   }
 
-  async function suspendUser(user: PlatformUser) {
-    if (!confirm(`Suspend ${user.name}?`)) return
+  async function rejectUser(user: PlatformUser) {
+    if (!confirm(`Reject ${user.name}? The account will be auto-deleted after ${REJECTION_RETENTION_DAYS} days.`)) return
     try {
       await fetch(`/api/platform/users/${user._id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
-        body: JSON.stringify({ status: "suspended", role: user.role }),
+        body: JSON.stringify({ status: "rejected", role: user.role }),
       })
       fetchUsers()
     } catch { /* silent */ }
@@ -122,6 +132,7 @@ export default function UsersPage() {
   }
 
   const pendingCount = users.filter((u) => u.status === "pending_access").length
+  const rejectedUsers = users.filter((u) => u.status === "rejected")
 
   return (
     <div className="space-y-4">
@@ -193,7 +204,7 @@ export default function UsersPage() {
                     Approve
                   </button>
                   <button
-                    onClick={() => suspendUser(u)}
+                    onClick={() => rejectUser(u)}
                     className="rounded-lg border border-gray-700 px-3 py-1.5 text-xs font-medium text-gray-400 hover:bg-gray-800"
                   >
                     Reject
@@ -201,6 +212,54 @@ export default function UsersPage() {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Rejected users — auto-delete countdown */}
+      {rejectedUsers.length > 0 && !statusFilter && (
+        <div className="rounded-lg border-red-800/30 bg-red-500/5 p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <h3 className="text-sm font-medium text-red-400">Rejected</h3>
+            <span className="text-xs text-gray-500">Auto-deleted {REJECTION_RETENTION_DAYS} days after rejection</span>
+          </div>
+          <div className="space-y-2">
+            {rejectedUsers.map((u) => {
+              const left = daysLeft(u.rejectedAt)
+              return (
+                <div key={u._id} className="flex items-center justify-between rounded-lg border-gray-800 bg-[#111] px-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-red-500/10 text-xs font-medium text-red-400">
+                      {u.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)}
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-white">{u.name}</p>
+                      <p className="text-xs text-gray-500">
+                        {u.email} &middot; {formatRole(u.role)} &middot;{" "}
+                        <span className={left <= 1 ? "text-red-400" : "text-amber-400"}>
+                          {left === 0 ? "deleting soon" : `deletes in ${left} day${left === 1 ? "" : "s"}`}
+                        </span>
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => approveUser(u)}
+                      className="rounded-lg border-emerald-800/40 px-3 py-1.5 text-xs font-medium text-emerald-400 hover:bg-emerald-500/10"
+                    >
+                      Restore
+                    </button>
+                    <button
+                      onClick={() => deleteUser(u._id)}
+                      className="flex items-center gap-1.5 rounded-lg bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-400 hover:bg-red-500/20"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      Delete now
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         </div>
       )}
@@ -229,10 +288,10 @@ export default function UsersPage() {
           <tbody className="divide-y divide-gray-800/50">
             {loading ? (
               <tr><td colSpan={6} className="px-3 py-12 text-center text-gray-500">Loading...</td></tr>
-            ) : users.filter((u) => u.status !== "pending_access").length === 0 ? (
+            ) : users.filter((u) => u.status !== "pending_access" && u.status !== "rejected").length === 0 ? (
               <tr><td colSpan={6} className="px-3 py-12 text-center text-gray-500">No active users found.</td></tr>
             ) : (
-              users.filter((u) => u.status !== "pending_access").map((u) => (
+              users.filter((u) => u.status !== "pending_access" && u.status !== "rejected").map((u) => (
                 <tr key={u._id} className="hover:bg-white/[0.02]">
                   <td className="px-3 py-2">
                     <input

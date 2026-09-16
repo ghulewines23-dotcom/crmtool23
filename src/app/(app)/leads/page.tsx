@@ -28,6 +28,7 @@ const FILTER_TABS: { value: string; label: string }[] = [
   { value: "overdue", label: "Overdue" },
   { value: "not_connected", label: "Not Connected" },
   { value: "processing", label: "Processing" },
+  { value: "follow_up", label: "Follow-up" },
   { value: "hot_lead", label: "Hot Lead" },
   { value: "won", label: "Sold" },
   { value: "lost", label: "Lost" },
@@ -497,7 +498,7 @@ function SingleLeadCard({
         <div className="min-w-0 flex-1 flex items-center gap-2">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5 flex-wrap">
-              <h3 className="font-semibold text-[13px] text-slate-900 tracking-tight leading-snug truncate">
+              <h3 className="font-sans font-semibold text-[13px] text-slate-900 tracking-tight leading-snug truncate">
                 {lead.company || lead.name || "Untitled"}
               </h3>
             </div>
@@ -599,7 +600,7 @@ export default function LeadsPage() {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [search, setSearch] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
-  
+
   // Single Card expansion (Only 1 card open at a time)
   const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -622,6 +623,7 @@ export default function LeadsPage() {
     overdue: leads.filter((l) => l.status === "overdue").length,
     not_connected: leads.filter((l) => l.status === "not_connected").length,
     processing: leads.filter((l) => l.status === "processing").length,
+    follow_up: leads.filter((l) => l.status === "follow_up").length,
     hot_lead: leads.filter((l) => l.status === "hot_lead").length,
     won: leads.filter((l) => l.status === "won").length,
     lost: leads.filter((l) => l.status === "lost").length,

@@ -108,6 +108,7 @@ export async function logAudit(params: LogAuditParams): Promise<void> {
 export const AUDIT_ACTIONS = {
   USER_SIGNUP: "USER_SIGNUP",
   USER_APPROVED: "USER_APPROVED",
+  USER_REJECTED: "USER_REJECTED",
   USER_LOGIN: "USER_LOGIN",
   USER_LOGIN_FAILED: "USER_LOGIN_FAILED",
   USER_LOGOUT: "USER_LOGOUT",

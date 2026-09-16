@@ -36,6 +36,13 @@ export async function PUT(
     if (status !== undefined && status !== user.status) {
       updates.status = status;
       changes.push(`status: ${user.status} → ${status}`);
+
+      // Rejection starts the 5-day auto-delete clock; approving clears it.
+      if (status === "rejected") {
+        updates.rejectedAt = new Date();
+      } else if (user.rejectedAt) {
+        updates.rejectedAt = null;
+      }
     }
 
     if (role !== undefined && role !== user.role) {
@@ -74,6 +81,7 @@ export async function PUT(
       if (field === "status") {
         if (String(updates.status) === "active") action = "USER_APPROVED";
         else if (String(updates.status) === "suspended") action = "USER_SUSPENDED";
+        else if (String(updates.status) === "rejected") action = "USER_REJECTED";
       } else if (field === "canAccessCRM") action = "CRM_ACCESS_CHANGED";
       else if (field === "canCreateOrganization") action = "CREATE_ORGANIZATION_ACCESS_CHANGED";
       else if (field === "canJoinOrganization") action = "JOIN_ORGANIZATION_ACCESS_CHANGED";

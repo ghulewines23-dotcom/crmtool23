@@ -25,7 +25,8 @@ export interface ITeamMember extends Document {
   activeTasks: number;
   completedTasks: number;
   projects: number;
-  status: "active" | "inactive" | "invited" | "pending_access" | "suspended";
+  status: "active" | "inactive" | "invited" | "pending_access" | "suspended" | "rejected";
+  rejectedAt?: Date | null;
   organizationId: string;
   organizations: IOrgMembership[];
   passwordHash: string;
@@ -70,9 +71,12 @@ const TeamMemberSchema = new Schema<ITeamMember>(
     projects: { type: Number, default: 0 },
     status: {
       type: String,
-      enum: ["active", "inactive", "invited", "pending_access", "suspended"],
+      enum: ["active", "inactive", "invited", "pending_access", "suspended", "rejected"],
       default: "active",
     },
+    // Set when the platform owner rejects a pending signup. Used to auto-delete
+    // the user 5 days after rejection.
+    rejectedAt: { type: Date, default: null },
     // Active organization (backward compat — always the currently selected org)
     organizationId: { type: String, default: "", index: true },
     // All organization memberships

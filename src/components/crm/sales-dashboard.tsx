@@ -44,8 +44,12 @@ export default function SalesDashboard() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const salesAgents = useMemo(() => {
+    // Only approved (active) members appear in the All Team dropdown —
+    // pending/invited/suspended/rejected users must never show up here.
     return teamMembers.filter(
-      (m) => m.role === "SALES_PERSON" || m.role === "ADMIN" || m.role === "FOUNDER" || m.role === "SERENE_OWNER"
+      (m) =>
+        m.status === "active" &&
+        (m.role === "SALES_PERSON" || m.role === "ADMIN" || m.role === "FOUNDER" || m.role === "SERENE_OWNER")
     );
   }, [teamMembers]);
 
@@ -108,8 +112,8 @@ export default function SalesDashboard() {
                 user?.role === "SERENE_OWNER" || user?.role === "FOUNDER"
                   ? "bg-amber-50 text-amber-700 border border-amber-200"
                   : user?.role === "ADMIN"
-                  ? "bg-blue-50 text-blue-700 border border-blue-200"
-                  : "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                    ? "bg-blue-50 text-blue-700 border border-blue-200"
+                    : "bg-emerald-50 text-emerald-700 border border-emerald-200"
               )}
             >
               {(user?.role === "SERENE_OWNER" || user?.role === "FOUNDER") && <Crown className="h-3 w-3" />}
@@ -118,10 +122,10 @@ export default function SalesDashboard() {
               {user?.role === "SERENE_OWNER"
                 ? "Owner"
                 : user?.role === "FOUNDER"
-                ? "Founder"
-                : user?.role === "ADMIN"
-                ? "Admin"
-                : "Sales"}
+                  ? "Founder"
+                  : user?.role === "ADMIN"
+                    ? "Admin"
+                    : "Sales"}
             </span>
           </div>
           <p className="text-[12px] sm:text-[13px] text-slate-500 mt-1">

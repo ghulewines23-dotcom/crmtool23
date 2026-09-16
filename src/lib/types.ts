@@ -244,7 +244,8 @@ export interface TeamMember {
   activeTasks: number;
   completedTasks: number;
   projects: number;
-  status: "active" | "inactive" | "invited";
+  status: "active" | "inactive" | "invited" | "pending_access" | "suspended" | "rejected";
+  rejectedAt?: string | null;
   organizationId: string;
   isSalesEligible?: boolean;
   secondaryRole?: string;

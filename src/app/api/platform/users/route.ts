@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db/connect";
 import TeamMember from "@/models/TeamMember";
 import { requirePlatformOwner } from "@/lib/api-auth";
+import { purgeExpiredRejectedUsers } from "@/lib/user-lifecycle";
 
 function jsonError(message: string, status: number) {
   return Response.json({ success: false, error: message }, { status });
@@ -21,6 +22,9 @@ export async function GET(request: NextRequest) {
 
   try {
     await connectDB();
+
+    // Auto-delete rejected users once their 5-day retention window has passed.
+    await purgeExpiredRejectedUsers();
 
     const { searchParams } = new URL(request.url);
     const role = searchParams.get("role");
