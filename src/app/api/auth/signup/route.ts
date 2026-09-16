@@ -137,6 +137,11 @@ export async function POST(request: NextRequest) {
           avatar: member.avatar,
           phone: member.phone,
           organizationId: organization.id,
+          organizations: [{
+            organizationId: organization.id,
+            role: "FOUNDER",
+            joinedAt: new Date().toISOString(),
+          }],
         },
         organization: {
           id: organization.id,

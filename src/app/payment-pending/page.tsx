@@ -155,14 +155,14 @@ function PaymentPendingContent() {
           {payment?.status === "PENDING" && (
             <div className="space-y-3">
               <a
-                href={`${RAZORPAY_PAYMENT_LINK}?amount=${amountInPaise}`}
+                href={RAZORPAY_PAYMENT_LINK}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="block"
               >
                 <Button className="w-full h-10 rounded-md" size="lg">
                   <CreditCard className="h-4 w-4 mr-2" />
-                  Pay Now via Razorpay
+                  Pay ₹{amount.toLocaleString("en-IN")} via Razorpay
                   <ExternalLink className="h-3.5 w-3.5 ml-2" />
                 </Button>
               </a>

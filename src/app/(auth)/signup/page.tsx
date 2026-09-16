@@ -131,7 +131,7 @@ function SignupForm() {
     return (
       name.trim() &&
       email.trim() &&
-      password.length >= 6 &&
+      password.length >= 8 &&
       password === confirmPassword
     )
   }
@@ -298,7 +298,7 @@ function SignupForm() {
                 <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
-                  placeholder="At least 6 characters"
+                  placeholder="At least 8 characters"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="pl-9"
