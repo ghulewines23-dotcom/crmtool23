@@ -143,12 +143,43 @@ export async function POST(request: NextRequest) {
       metadata: { role: validRole, recipientEmail, name },
     });
 
+    // Create TeamMember document directly in MongoDB so member is active & visible
+    const initials = name
+      .split(" ")
+      .map((n: string) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
+
+    const isSalesEligible = body.isSalesEligible !== undefined ? body.isSalesEligible : true;
+    const secondaryRole = body.secondaryRole || (isSalesEligible ? "SALES_PERSON" : "");
+
+    const newMember = await TeamMember.create({
+      name,
+      email: recipientEmail,
+      phone: phone || "",
+      role: validRole,
+      avatar: initials,
+      status: "active",
+      organizationId: auth.user.organizationId,
+      organizations: [{ organizationId: auth.user.organizationId, role: validRole, joinedAt: new Date() }],
+      canAccessCRM: true,
+      isSalesEligible,
+      secondaryRole,
+    });
+
+    const memberObject = {
+      ...newMember.toObject(),
+      id: String(newMember._id),
+    };
+
     return Response.json({
       success: true,
+      member: memberObject,
       inviteLink,
       role: validRole,
       expiresAt,
-      message: `Invite link generated for ${recipientEmail}`,
+      message: `Team member ${name} added successfully`,
     });
   } catch (error: unknown) {
     console.error("Error creating invite:", error);

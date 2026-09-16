@@ -267,21 +267,24 @@ export function CRMDataProvider({ children }: { children: React.ReactNode }) {
               email: member.email,
               phone: member.phone,
               role: member.role,
+              isSalesEligible: member.isSalesEligible,
+              secondaryRole: member.secondaryRole,
             }),
           });
           const data = await response.json();
           if (data.success) {
-            setTeamMembers((prev) => [
-              { ...data.member, id: data.member._id },
-              ...prev,
-            ]);
+            const addedMember = data.member
+              ? { ...data.member, id: data.member.id || data.member._id }
+              : { ...member, id: Date.now().toString() };
+            setTeamMembers((prev) => [addedMember, ...prev]);
+            await fetchTeamMembers();
           }
         } catch (error) {
           console.error("Error adding team member:", error);
         }
       }
     },
-    []
+    [fetchTeamMembers]
   );
 
   // Update team member via API
