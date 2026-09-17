@@ -7,9 +7,11 @@ export const dynamic = "force-dynamic";
  * GET/POST /api/cron/reminders
  *
  * Sends task + follow-up reminders for every user (2 minutes before due).
- * Intended to be run every minute by an external scheduler (e.g. Vercel
- * Cron). While the app is open, /api/reminders/check covers the same work
- * per-user, so reminders still arrive even if this schedule is delayed.
+ * Not registered in vercel.json: Vercel Hobby limits cron to once per day,
+ * which is too coarse for 2-minute reminders, so this route is available for
+ * external schedulers only. Reminders are delivered on the Hobby plan by the
+ * authenticated /api/reminders/check endpoint, which the app polls every
+ * minute while a user has it open.
  *
  * Protect with CRON_SECRET when configured:
  *   Authorization: Bearer <CRON_SECRET>   (or ?secret=<CRON_SECRET>)
