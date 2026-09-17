@@ -1,6 +1,6 @@
 import mongoose, { Schema, Document } from "mongoose";
 
-export type NotificationType = "invitation_accepted" | "invitation_declined" | "org_joined" | "member_joined" | "general";
+export type NotificationType = "invitation_accepted" | "invitation_declined" | "org_joined" | "member_joined" | "task_reminder" | "followup_reminder" | "general";
 
 export interface INotification extends Document {
   userId: string;
@@ -21,7 +21,7 @@ const NotificationSchema = new Schema<INotification>(
     userId: { type: String, required: true, index: true },
     type: {
       type: String,
-      enum: ["invitation_accepted", "invitation_declined", "org_joined", "member_joined", "general"],
+      enum: ["invitation_accepted", "invitation_declined", "org_joined", "member_joined", "task_reminder", "followup_reminder", "general"],
       required: true,
     },
     title: { type: String, required: true },

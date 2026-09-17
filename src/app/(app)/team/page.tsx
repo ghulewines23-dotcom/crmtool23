@@ -2,13 +2,15 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { useAuth } from "@/lib/auth-context"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Check, Clock } from "lucide-react"
 
 interface TeamMember { id: string; name: string; email: string; phone: string; role: string; avatar: string; status: string; activeLeads: number }
 
-function formatRole(r: string) { return r.split("_").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ") }
+function formatRole(r: string) {
+  if (r === "FOUNDER" || r === "SERENE_OWNER") return "Owner"
+  return r.split("_").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")
+}
 
 export default function TeamPage() {
   const { user } = useAuth()
@@ -18,14 +20,14 @@ export default function TeamPage() {
   const [search, setSearch] = useState("")
   const [approving, setApproving] = useState<string | null>(null)
 
-  const isFounder = user?.role === "FOUNDER"
+  const isFounder = user?.role === "FOUNDER" || user?.role === "SERENE_OWNER"
 
   const fetchMembers = useCallback(async () => {
     try {
       const res = await fetch("/api/team", { credentials: "same-origin" })
       const data = await res.json()
-      // Team tab shows only APPROVED (active) members — never pending or inactive
-      if (data.success) setMembers(data.members.filter((m: TeamMember) => m.status === "active" && m.role !== "FOUNDER" && m.role !== "SERENE_OWNER"))
+      // Team tab shows only APPROVED (active) members — includes the owner
+      if (data.success) setMembers(data.members.filter((m: TeamMember) => m.status === "active"))
     } catch { }
     setLoading(false)
   }, [])
@@ -57,7 +59,14 @@ export default function TeamPage() {
     setApproving(null)
   }, [fetchMembers])
 
-  useEffect(() => { fetchMembers(); fetchPending() }, [fetchMembers, fetchPending])
+  useEffect(() => {
+    // Defer slightly so state updates never happen synchronously inside the effect.
+    const t = window.setTimeout(() => {
+      fetchMembers()
+      fetchPending()
+    }, 0)
+    return () => window.clearTimeout(t)
+  }, [fetchMembers, fetchPending])
 
   const filtered = members.filter((m) => m.name.toLowerCase().includes(search.toLowerCase()) || m.email.toLowerCase().includes(search.toLowerCase()))
 
@@ -109,7 +118,6 @@ export default function TeamPage() {
             <thead>
               <tr className="border-b border-border">
                 <th className="text-left text-[11px] font-medium text-muted-foreground px-4 py-3">Name</th>
-                <th className="text-left text-[11px] font-medium text-muted-foreground px-4 py-3 hidden md:table-cell">Email</th>
                 <th className="text-left text-[11px] font-medium text-muted-foreground px-4 py-3 hidden md:table-cell">Phone</th>
                 <th className="text-left text-[11px] font-medium text-muted-foreground px-4 py-3">Role</th>
                 <th className="text-left text-[11px] font-medium text-muted-foreground px-4 py-3 hidden md:table-cell">Leads</th>
@@ -121,7 +129,6 @@ export default function TeamPage() {
                   <td className="px-4 py-3">
                     <span className="text-[13px] font-medium">{member.name}</span>
                   </td>
-                  <td className="px-4 py-3 text-[13px] text-muted-foreground hidden md:table-cell">{member.email}</td>
                   <td className="px-4 py-3 text-[13px] text-muted-foreground hidden md:table-cell">{member.phone}</td>
                   <td className="px-4 py-3 text-[13px] text-muted-foreground">{formatRole(member.role)}</td>
                   <td className="px-4 py-3 text-[13px] text-muted-foreground hidden md:table-cell">{member.activeLeads}</td>

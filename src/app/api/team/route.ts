@@ -32,9 +32,9 @@ export async function GET(request: NextRequest) {
       organizationId: auth.user.organizationId,
     };
 
-    // Pending approvals are only visible to org owners (FOUNDER)
+    // Pending approvals are only visible to org owners (FOUNDER) and the platform owner
     if (pendingOnly) {
-      if (auth.user.role !== "FOUNDER") {
+      if (auth.user.role !== "FOUNDER" && auth.user.role !== "SERENE_OWNER") {
         return jsonError("Only the organization owner can view pending approvals", 403);
       }
       const pendingMembers = await TeamMember.find({

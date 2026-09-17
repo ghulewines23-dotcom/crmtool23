@@ -20,6 +20,7 @@ export interface ILead extends Document {
   assignedToName: string;
   nextFollowup: Date | null;
   lastActivity: Date;
+  followUpReminderSentAt?: Date | null;
   organizationId: string;
   createdBy: string;
   rawExcelData?: Record<string, any>;
@@ -61,6 +62,7 @@ const LeadSchema = new Schema<ILead>(
     assignedToName: { type: String, default: "" },
     nextFollowup: { type: Date, default: null },
     lastActivity: { type: Date, default: Date.now },
+    followUpReminderSentAt: { type: Date, default: null },
     organizationId: { type: String, required: true, index: true },
     createdBy: { type: String, default: "" },
     rawExcelData: { type: Schema.Types.Mixed, default: {} },

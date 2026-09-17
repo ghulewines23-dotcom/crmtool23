@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
       return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}`;
     };
 
-    const monthlyMap = new Map<string, { revenue: number; expenses: number }>();
+    const monthlyMap = new Map<string, { revenue: number; expenses: number; commission: number }>();
 
     // Build an ordered list of the last 12 months (oldest → newest)
     const now = new Date();
@@ -79,7 +79,7 @@ export async function GET(request: NextRequest) {
         month: d.getMonth(),
         year: d.getFullYear(),
       });
-      monthlyMap.set(monthKey(d), { revenue: 0, expenses: 0 });
+      monthlyMap.set(monthKey(d), { revenue: 0, expenses: 0, commission: 0 });
     }
 
     // Revenue from won leads (by their creation month)
@@ -96,6 +96,7 @@ export async function GET(request: NextRequest) {
       if (!bucket) return;
       bucket.revenue += c.amountPaid || c.totalAmount || 0;
       bucket.expenses += (c.expenses || 0) + (c.commission || 0);
+      bucket.commission += c.commission || 0;
     });
 
     // General expenses (by expense date month)
@@ -106,7 +107,7 @@ export async function GET(request: NextRequest) {
     });
 
     const monthly = months.map((m) => {
-      const bucket = monthlyMap.get(m.key) || { revenue: 0, expenses: 0 };
+      const bucket = monthlyMap.get(m.key) || { revenue: 0, expenses: 0, commission: 0 };
       return {
         key: m.key,
         label: m.label,
@@ -114,6 +115,7 @@ export async function GET(request: NextRequest) {
         year: m.year,
         revenue: bucket.revenue,
         expenses: bucket.expenses,
+        commission: bucket.commission,
         profit: bucket.revenue - bucket.expenses,
       };
     });
@@ -126,7 +128,7 @@ export async function GET(request: NextRequest) {
       return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
     };
 
-    const dailyMap = new Map<string, { revenue: number; expenses: number }>();
+    const dailyMap = new Map<string, { revenue: number; expenses: number; commission: number; wonLeads: number }>();
     const days: { key: string; label: string; month: number; year: number; day: number }[] = [];
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     for (let i = 29; i >= 0; i--) {
@@ -138,12 +140,15 @@ export async function GET(request: NextRequest) {
         year: d.getFullYear(),
         day: d.getDate(),
       });
-      dailyMap.set(dayKey(d), { revenue: 0, expenses: 0 });
+      dailyMap.set(dayKey(d), { revenue: 0, expenses: 0, commission: 0, wonLeads: 0 });
     }
 
     wonLeads.forEach((l) => {
       const bucket = dailyMap.get(dayKey(l.createdAt as unknown as string));
-      if (bucket) bucket.revenue += l.value || 0;
+      if (bucket) {
+        bucket.revenue += l.value || 0;
+        bucket.wonLeads += 1;
+      }
     });
 
     clients.forEach((c) => {
@@ -151,6 +156,7 @@ export async function GET(request: NextRequest) {
       if (!bucket) return;
       bucket.revenue += c.amountPaid || c.totalAmount || 0;
       bucket.expenses += (c.expenses || 0) + (c.commission || 0);
+      bucket.commission += c.commission || 0;
     });
 
     generalExpenses.forEach((e) => {
@@ -159,7 +165,7 @@ export async function GET(request: NextRequest) {
     });
 
     const daily = days.map((d) => {
-      const bucket = dailyMap.get(d.key) || { revenue: 0, expenses: 0 };
+      const bucket = dailyMap.get(d.key) || { revenue: 0, expenses: 0, commission: 0, wonLeads: 0 };
       return {
         key: d.key,
         label: d.label,
@@ -167,6 +173,8 @@ export async function GET(request: NextRequest) {
         year: d.year,
         revenue: bucket.revenue,
         expenses: bucket.expenses,
+        commission: bucket.commission,
+        wonLeads: bucket.wonLeads,
         profit: bucket.revenue - bucket.expenses,
       };
     });

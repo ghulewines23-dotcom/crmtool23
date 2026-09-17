@@ -110,7 +110,7 @@ export function Sidebar({ collapsed, onToggle, className }: SidebarProps) {
       <div className={cn("flex h-14 items-center border-b border-slate-200/80 px-4", collapsed && "justify-center")}>
         {!collapsed ? (
           <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-600 text-white">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-blue-400 to-violet-600 text-white shadow-sm shadow-blue-500/30">
               <span className="font-display text-sm font-bold">S</span>
             </div>
             <span className="font-display text-[15px] font-semibold tracking-tight text-slate-900">
@@ -118,7 +118,7 @@ export function Sidebar({ collapsed, onToggle, className }: SidebarProps) {
             </span>
           </div>
         ) : (
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-600 text-white">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-blue-400 to-violet-600 text-white shadow-sm shadow-blue-500/30">
             <span className="font-display text-sm font-bold">S</span>
           </div>
         )}

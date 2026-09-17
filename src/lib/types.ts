@@ -63,7 +63,7 @@ export interface Subscription {
 
 // ─── Notifications ───
 
-export type NotificationType = "invitation_accepted" | "invitation_declined" | "org_joined" | "member_joined" | "general";
+export type NotificationType = "invitation_accepted" | "invitation_declined" | "org_joined" | "member_joined" | "task_reminder" | "followup_reminder" | "general";
 
 export interface Notification {
   id: string;

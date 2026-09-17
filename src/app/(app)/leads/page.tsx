@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useCallback, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useAuth } from "@/lib/auth-context";
 import { useCRMData } from "@/lib/crm-data-context";
 import { Button } from "@/components/ui/button";
@@ -16,9 +17,7 @@ import {
   ChevronDown,
   Clock,
   Edit2,
-  Calendar,
   MessageSquare,
-  MapPin,
   CheckSquare,
 } from "lucide-react";
 import type { Lead, LeadStatus } from "@/lib/types";
@@ -138,7 +137,7 @@ function WheelColumn({
   return (
     <div
       ref={containerRef}
-      className="flex flex-col items-center justify-center select-none py-1 min-w-[48px] touch-none"
+      className="flex flex-col items-center justify-center select-none py-0.5 min-w-[42px] touch-none"
       onWheel={handleWheel}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
@@ -146,19 +145,19 @@ function WheelColumn({
       <button
         type="button"
         onClick={goToPrev}
-        className="text-[13px] font-normal text-zinc-400 hover:text-zinc-200 py-1 transition-colors"
+        className="text-[12px] font-normal text-slate-400 hover:text-slate-600 py-0.5 px-1 transition-colors"
       >
         {prev.label}
       </button>
 
-      <div className="w-full border-y border-zinc-400/80 py-1.5 text-center my-1.5">
-        <span className="text-[16px] font-semibold text-white tracking-wide">{curr.label}</span>
+      <div className="w-full border-y border-slate-200 bg-white rounded-md py-1 text-center my-1">
+        <span className="text-[15px] font-semibold text-slate-900 tracking-wide">{curr.label}</span>
       </div>
 
       <button
         type="button"
         onClick={goToNext}
-        className="text-[13px] font-normal text-zinc-400 hover:text-zinc-200 py-1 transition-colors"
+        className="text-[12px] font-normal text-slate-400 hover:text-slate-600 py-0.5 px-1 transition-colors"
       >
         {next.label}
       </button>
@@ -169,13 +168,11 @@ function WheelColumn({
 // Custom "Set date and time" Wheel Modal matching reference screenshot
 function ScrollDateTimePickerModal({
   isOpen,
-  initialDate,
   onClose,
   onSet,
   onClear,
 }: {
   isOpen: boolean;
-  initialDate?: string | null;
   onClose: () => void;
   onSet: (formattedDateTime: string) => void;
   onClear: () => void;
@@ -192,8 +189,15 @@ function ScrollDateTimePickerModal({
     if (!isOpen) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = prev; };
-  }, [isOpen]);
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -208,56 +212,81 @@ function ScrollDateTimePickerModal({
     onClose();
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs overflow-hidden">
-      <div className="bg-[#292c34] text-white rounded-[28px] p-6 shadow-2xl w-full max-w-sm border border-zinc-700/60 space-y-6">
-        <div>
-          <h3 className="text-xl font-normal text-white tracking-tight">Set date and time</h3>
+  const modal = (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 overscroll-contain"
+      onClick={onClose}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-sm rounded-2xl border border-zinc-200 bg-white shadow-2xl"
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-zinc-100 px-5 py-3.5">
+          <h3 className="text-[15px] font-semibold text-zinc-900 tracking-tight">Set Follow-up</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="rounded-lg p-1 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700 cursor-pointer"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
 
         {/* Roller Wheel Container matching screenshot */}
-        <div className="space-y-6 py-2">
+        <div className="space-y-4 px-5 py-4">
           {/* Date Wheels (Day, Month, Year) */}
-          <div className="grid grid-cols-3 gap-2 items-center text-center">
-            <WheelColumn options={DAYS} value={day} onChange={setDay} />
-            <WheelColumn options={MONTHS} value={month} onChange={setMonth} />
-            <WheelColumn options={YEARS} value={year} onChange={setYear} />
+          <div>
+            <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+              Date
+            </span>
+            <div className="grid grid-cols-3 gap-1 rounded-xl border border-zinc-200 bg-zinc-50 px-1.5 py-1.5 text-center">
+              <WheelColumn options={DAYS} value={day} onChange={setDay} />
+              <WheelColumn options={MONTHS} value={month} onChange={setMonth} />
+              <WheelColumn options={YEARS} value={year} onChange={setYear} />
+            </div>
           </div>
 
           {/* Time Wheels (Hour, Minute, AM/PM) */}
-          <div className="grid grid-cols-3 gap-2 items-center text-center">
-            <WheelColumn options={HOURS} value={hour} onChange={setHour} />
-            <div className="flex items-center justify-center">
+          <div>
+            <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+              Time
+            </span>
+            <div className="grid grid-cols-3 gap-1 rounded-xl border border-zinc-200 bg-zinc-50 px-1.5 py-1.5 text-center">
+              <WheelColumn options={HOURS} value={hour} onChange={setHour} />
               <WheelColumn options={MINUTES} value={minute} onChange={setMinute} />
+              <WheelColumn options={AMPM} value={ampmVal} onChange={setAmpmVal} />
             </div>
-            <WheelColumn options={AMPM} value={ampmVal} onChange={setAmpmVal} />
           </div>
         </div>
 
         {/* Modal Footer Actions matching screenshot */}
-        <div className="flex items-center justify-between pt-3 border-t border-zinc-700/40">
+        <div className="flex items-center justify-between border-t border-zinc-100 px-5 py-3">
           <button
             type="button"
             onClick={() => {
               onClear();
               onClose();
             }}
-            className="text-[14px] font-medium text-[#eab308] hover:text-yellow-400 transition-colors"
+            className="text-[13px] font-medium text-zinc-400 transition-colors hover:text-zinc-700 cursor-pointer"
           >
             Clear
           </button>
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={onClose}
-              className="text-[14px] font-medium text-[#eab308] hover:text-yellow-400 transition-colors"
+              className="rounded-lg border border-zinc-200 px-3.5 py-1.5 text-[13px] font-medium text-zinc-700 transition-colors hover:bg-zinc-50 cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="button"
               onClick={handleSet}
-              className="text-[14px] font-semibold text-[#eab308] hover:text-yellow-400 transition-colors"
+              className="rounded-lg bg-zinc-900 px-4 py-1.5 text-[13px] font-semibold text-white transition-colors hover:bg-zinc-700 cursor-pointer"
             >
               Set
             </button>
@@ -266,6 +295,10 @@ function ScrollDateTimePickerModal({
       </div>
     </div>
   );
+
+  // Portal to document.body so it can never be trapped behind a card's stacking context.
+  if (typeof document === "undefined") return null;
+  return createPortal(modal, document.body);
 }
 
 // Reusable Lead Expanded Detail Content (Used in both Card View and Table View)
@@ -283,13 +316,6 @@ function LeadDetailExpandedContent({
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [showDatePickerModal, setShowDatePickerModal] = useState(false);
   const [followupNotes, setFollowupNotes] = useState(lead.notes || "");
-
-  const handleStatusClick = async (status: LeadStatus) => {
-    if (lead.status === status || updatingStatus) return;
-    setUpdatingStatus(true);
-    await onStatusChange(lead.id, status);
-    setUpdatingStatus(false);
-  };
 
   const handleSetDateTime = async (isoDateTimeStr: string) => {
     setUpdatingStatus(true);
@@ -429,7 +455,6 @@ function LeadDetailExpandedContent({
       {/* Scrollable Date Time Picker Modal */}
       <ScrollDateTimePickerModal
         isOpen={showDatePickerModal}
-        initialDate={lead.nextFollowup}
         onClose={() => setShowDatePickerModal(false)}
         onSet={handleSetDateTime}
         onClear={handleClearDateTime}
@@ -501,6 +526,11 @@ function SingleLeadCard({
               <h3 className="font-sans font-semibold text-[13px] text-slate-900 tracking-tight leading-snug truncate">
                 {lead.company || lead.name || "Untitled"}
               </h3>
+              {lead.source ? (
+                <span className="inline-flex items-center rounded-md border border-slate-200 bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 leading-none shrink-0">
+                  {lead.source}
+                </span>
+              ) : null}
             </div>
             {subtitleInfo && (
               <p className="text-[11px] text-slate-400 mt-0.5 truncate">{subtitleInfo}</p>
@@ -592,7 +622,7 @@ function SingleLeadCard({
 
 export default function LeadsPage() {
   const { user } = useAuth();
-  const { leads, fetchLeads, bulkDeleteLeads } = useCRMData();
+  const { leads, fetchLeads, bulkDeleteLeads, updateLead } = useCRMData();
   const isSales = user?.role === "SALES_PERSON";
   const canManage = user?.role === "FOUNDER" || user?.role === "ADMIN" || user?.role === "SERENE_OWNER";
 
@@ -694,23 +724,10 @@ export default function LeadsPage() {
   };
 
   const handleStatusChange = async (leadId: string, newStatus: LeadStatus, followupDate?: string, notes?: string) => {
-    try {
-      const payload: Record<string, unknown> = { status: newStatus };
-      if (followupDate !== undefined) payload.nextFollowup = followupDate;
-      if (notes !== undefined) payload.notes = notes;
-
-      const res = await fetch(`/api/leads/${leadId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json();
-      if (data.success) {
-        fetchLeads();
-      }
-    } catch (err) {
-      console.error("Status update failed:", err);
-    }
+    const payload: Record<string, unknown> = { status: newStatus };
+    if (followupDate !== undefined) payload.nextFollowup = followupDate;
+    if (notes !== undefined) payload.notes = notes;
+    await updateLead(leadId, payload);
   };
 
   const handleDeleteLead = async (id: string) => {
@@ -1037,6 +1054,15 @@ function AddLeadModal({ onClose }: { onClose: () => void }) {
               placeholder="e.g. Karol Bagh"
             />
           </div>
+          <div>
+            <label className="block text-[13px] font-semibold text-zinc-800 mb-1">Source</label>
+            <input
+              value={formData.source}
+              onChange={(e) => setFormData({ ...formData, source: e.target.value })}
+              className="h-10 w-full rounded-xl border border-zinc-200 px-3.5 text-[13px] outline-none focus:border-zinc-900"
+              placeholder="e.g. Website, Google Ads, Meta Ads, Referral, WhatsApp"
+            />
+          </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-[13px] font-semibold text-zinc-800 mb-1">Status</label>
@@ -1088,6 +1114,7 @@ function LeadEditModal({ lead, onClose, onSaved }: { lead: Lead; onClose: () => 
   const [category, setCategory] = useState(lead.category || "");
   const [phone, setPhone] = useState(lead.phone || "");
   const [location, setLocation] = useState(lead.location || "");
+  const [source, setSource] = useState(lead.source || "");
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
@@ -1096,7 +1123,7 @@ function LeadEditModal({ lead, onClose, onSaved }: { lead: Lead; onClose: () => 
       const res = await fetch(`/api/leads/${lead.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ company, category, phone, location }),
+        body: JSON.stringify({ company, category, phone, location, source }),
       });
       const data = await res.json();
       if (data.success) {
@@ -1151,6 +1178,15 @@ function LeadEditModal({ lead, onClose, onSaved }: { lead: Lead; onClose: () => 
               value={location}
               onChange={(e) => setLocation(e.target.value)}
               className="w-full h-10 rounded-xl border border-zinc-200 px-3 text-[13px] outline-none focus:border-zinc-900"
+            />
+          </div>
+          <div>
+            <label className="block text-[12px] font-semibold text-zinc-700 mb-1">Source</label>
+            <input
+              value={source}
+              onChange={(e) => setSource(e.target.value)}
+              className="w-full h-10 rounded-xl border border-zinc-200 px-3 text-[13px] outline-none focus:border-zinc-900"
+              placeholder="e.g. Website, Google Ads, Meta Ads, Referral, WhatsApp"
             />
           </div>
         </div>

@@ -148,6 +148,7 @@ export async function POST(
 
     const globalCategory = (body.category || "").trim();
     const globalLocation = (body.location || "").trim();
+    const globalSource = (body.source || "").trim();
     const CATEGORIES_FOR_RANDOM = ["Clinic", "Real Estate", "Institute", "E-commerce", "Services"];
 
     const documents = uniqueRows.map((row, index) => {
@@ -169,6 +170,7 @@ export async function POST(
       }
 
       const leadLocation = globalLocation || (row.location || "").trim();
+      const leadSource = globalSource || (row.source || "").trim();
 
       return {
         name: (row.name || "").trim(),
@@ -176,7 +178,7 @@ export async function POST(
         email: (row.email || "").trim(),
         company: (row.company || "").trim() || (row.name || "").trim() || "Imported Business",
         category: leadCategory,
-        source: (row.source || "").trim(),
+        source: leadSource,
         sourceUrl: (row.sourceUrl || "").trim(),
         requirement: (row.requirement || "").trim() || (row.name || "").trim() || (row.company || "").trim() || (row.phone || "").trim() || "Imported Lead",
         notes: (row.notes || "").trim(),

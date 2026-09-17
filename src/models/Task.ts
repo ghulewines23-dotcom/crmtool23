@@ -15,6 +15,7 @@ export interface ITask extends Document {
   createdBy: string;
   createdByName?: string;
   createdByRole?: string;
+  reminderSentAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -43,6 +44,7 @@ const TaskSchema = new Schema<ITask>(
     createdBy: { type: String, default: "" },
     createdByName: { type: String, default: "" },
     createdByRole: { type: String, default: "" },
+    reminderSentAt: { type: Date, default: null },
   },
   { timestamps: true }
 );

@@ -100,7 +100,7 @@ export async function requireRole(
 export async function requireFounder(
   request: NextRequest
 ): Promise<{ user: ApiUser } | { error: Response }> {
-  return requireRole(request, "FOUNDER");
+  return requireRole(request, "FOUNDER", "SERENE_OWNER");
 }
 
 /** SERENE_OWNER only */

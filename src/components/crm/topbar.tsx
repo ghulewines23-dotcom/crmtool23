@@ -4,9 +4,10 @@ import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "cn";
 import { useAuth } from "@/lib/auth-context";
-import { Menu, Search, Bell, User, Settings, LogOut, ChevronDown, Check, X, Clock } from "lucide-react";
+import { Menu, Search, Bell, User, Settings, LogOut, ChevronDown, Check, X, Clock, BellRing } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { OrganizationSelector } from "./organization-selector";
+import { usePush } from "@/lib/push-context";
 
 interface TopbarProps {
   onMenuToggle: () => void;
@@ -49,6 +50,7 @@ export function Topbar({ onMenuToggle, className }: TopbarProps) {
     markNotificationsRead,
     isPlatformOwner,
   } = useAuth();
+  const push = usePush();
 
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
   const [decliningId, setDecliningId] = useState<string | null>(null);
@@ -218,12 +220,50 @@ export function Topbar({ onMenuToggle, className }: TopbarProps) {
                     ))
                   )}
                 </div>
-              </div>
-            )}
-          </div>
-        )}
 
-        {/* User dropdown */}
+              {/* Push notifications toggle */}
+              <div className="border-t border-slate-100 px-4 py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-600">
+                      <BellRing className="h-3.5 w-3.5" />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-[12px] font-medium text-slate-900">Push notifications</p>
+                      <p className="text-[10px] text-slate-400">
+                        {push.supported
+                          ? push.enabled
+                            ? "Reminders ring on this device"
+                            : "Get task & follow-up alerts with sound"
+                          : "Not supported on this device"}
+                      </p>
+                    </div>
+                  </div>
+                  {push.supported && push.status !== "denied" && (
+                    <button
+                      onClick={() => (push.enabled ? push.disable() : push.enable())}
+                      disabled={!push.supported}
+                      className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${
+                        push.enabled ? "bg-blue-600" : "bg-slate-200"
+                      }`}
+                      aria-pressed={push.enabled}
+                      aria-label="Toggle push notifications"
+                    >
+                      <span
+                        className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${
+                          push.enabled ? "left-[18px]" : "left-0.5"
+                        }`}
+                      />
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* User dropdown */}
         <div className="relative" ref={dropdownRef}>
           <button
             onClick={() => setDropdownOpen(!dropdownOpen)}

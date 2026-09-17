@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useMemo } from "react";
 import { useCRMData } from "@/lib/crm-data-context";
 import { Button } from "@/components/ui/button";
+import { CustomSelect } from "@/components/ui/custom-select";
 import {
   Upload,
   FileSpreadsheet,
@@ -58,7 +59,7 @@ function getAuthHeaders(): Record<string, string> {
 }
 
 export default function ImportLeadsPage() {
-  const { fetchLeads, addLeads } = useCRMData();
+  const { fetchLeads, addLeads, leads } = useCRMData();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [viewState, setViewState] = useState<ViewState>("upload");
@@ -70,6 +71,22 @@ export default function ImportLeadsPage() {
   const [dragActive, setDragActive] = useState(false);
   const [category, setCategory] = useState<string>("");
   const [location, setLocation] = useState<string>("");
+  const [source, setSource] = useState<string>("");
+
+  // Dropdown options = all lead sources present in the dashboard.
+  const sourceOptions = useMemo(() => {
+    const seen = new Set<string>();
+    const options: string[] = [];
+    leads.forEach((l) => {
+      const v = (l.source || "").trim();
+      const key = v.toLowerCase();
+      if (v && !seen.has(key)) {
+        seen.add(key);
+        options.push(v);
+      }
+    });
+    return options;
+  }, [leads]);
 
   const handleFileUpload = useCallback(async (file: File) => {
     setError(null);
@@ -158,7 +175,7 @@ export default function ImportLeadsPage() {
       const response = await fetch(`/api/leads/import/${job.id}`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-        body: JSON.stringify({ rows: validRows, category, location }),
+        body: JSON.stringify({ rows: validRows, category, location, source }),
         cache: "no-store",
       });
 
@@ -192,7 +209,7 @@ export default function ImportLeadsPage() {
     } finally {
       setImporting(false);
     }
-  }, [job, fetchLeads, addLeads, category, location]);
+  }, [job, fetchLeads, addLeads, category, location, source]);
 
   const handleReset = useCallback(() => {
     setViewState("upload");
@@ -201,6 +218,7 @@ export default function ImportLeadsPage() {
     setShowAllRows(false);
     setCategory("");
     setLocation("");
+    setSource("");
   }, []);
 
   const previewRows = job?.preview || [];
@@ -323,14 +341,14 @@ export default function ImportLeadsPage() {
           <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-xs space-y-4">
             <div>
               <h3 className="text-[15px] font-bold text-zinc-900 tracking-tight">
-                Batch Details (Category & Address)
+                Batch Details (Category, Address & Source)
               </h3>
               <p className="text-[13px] text-zinc-500 mt-0.5">
-                Optionally enter a Category and Address for all leads in this import batch.
+                Optionally set a Category, Address and Source for all leads in this batch. Source is picked from the existing lead sources.
               </p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {/* Category Input */}
               <div className="space-y-1.5">
                 <label className="text-[13px] font-semibold text-zinc-800">
@@ -356,6 +374,21 @@ export default function ImportLeadsPage() {
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
                   className="w-full h-10 bg-white text-zinc-900 border border-zinc-200 rounded-xl px-3.5 text-[13px] placeholder:text-zinc-400 outline-none shadow-xs focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 transition-all"
+                />
+              </div>
+
+              {/* Source Dropdown */}
+              <div className="space-y-1.5">
+                <label className="text-[13px] font-semibold text-zinc-800">
+                  Source
+                </label>
+                <CustomSelect
+                  options={sourceOptions.map((s) => ({ value: s, label: s }))}
+                  value={source}
+                  onChange={setSource}
+                  placeholder={sourceOptions.length > 0 ? "Select source..." : "No sources yet"}
+                  className="w-full"
+                  size="md"
                 />
               </div>
             </div>
@@ -513,7 +546,17 @@ export default function ImportLeadsPage() {
                         {row.location || <span className="text-muted-foreground">&mdash;</span>}
                       </td>
                       <td className="px-4 py-2.5 text-[13px] text-muted-foreground hidden lg:table-cell">
-                        {row.source || <span className="text-muted-foreground">&mdash;</span>}
+                        {(source || row.source) ? (
+                          <span className="inline-flex items-center">
+                            {source ? (
+                              <span className="font-medium text-zinc-700">{source}</span>
+                            ) : (
+                              row.source
+                            )}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">&mdash;</span>
+                        )}
                       </td>
                     </tr>
                   ))}

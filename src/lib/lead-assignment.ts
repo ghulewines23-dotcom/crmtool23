@@ -10,17 +10,18 @@ export interface AssignedSalesperson {
 /**
  * Reusable server-side service to automatically assign a lead to an active SALES_PERSON
  * in the specified organization using a least-loaded algorithm with round-robin tie breaking.
+ * Leads are never assigned to admins, founders or owners — if no salesperson is available
+ * the lead is left unassigned.
  */
 export async function assignLeadToSalesPerson(
   organizationId: string
 ): Promise<AssignedSalesperson | null> {
   await connectDB();
 
-  // Find all active salespeople in the organization (excluding Owners)
-  let salespeople = await TeamMember.find({
+  const salespeople = await TeamMember.find({
     organizationId,
     status: "active",
-    role: { $nin: ["FOUNDER", "SERENE_OWNER"] },
+    role: { $nin: ["FOUNDER", "SERENE_OWNER", "ADMIN"] },
     $or: [
       { role: "SALES_PERSON" },
       { secondaryRole: "SALES_PERSON" },
@@ -29,21 +30,6 @@ export async function assignLeadToSalesPerson(
   })
     .select("_id name")
     .lean();
-
-  // Fallback: If 0 active Sales Persons exist, fall back to active ADMINs (excluding Owners)
-  if (!salespeople || salespeople.length === 0) {
-    salespeople = await TeamMember.find({
-      organizationId,
-      status: "active",
-      role: { $nin: ["FOUNDER", "SERENE_OWNER"] },
-      $or: [
-        { role: "ADMIN" },
-        { secondaryRole: "ADMIN" },
-      ],
-    })
-      .select("_id name")
-      .lean();
-  }
 
   if (!salespeople || salespeople.length === 0) {
     return null;
