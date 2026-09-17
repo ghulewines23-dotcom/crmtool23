@@ -66,6 +66,7 @@ interface CRMDataContextType extends CRMDataState {
   addTask: (task: Omit<Task, "id" | "organizationId" | "createdAt">) => Promise<Task | null>;
   updateTask: (id: string, data: Partial<Task>) => Promise<void>;
   deleteTask: (id: string) => Promise<void>;
+  bulkDeleteTasks: (ids: string[]) => Promise<void>;
   addProjects: (newProjects: Project[]) => void;
   addInvoices: (newInvoices: Invoice[]) => void;
   addImportHistory: (history: ImportHistory) => void;
@@ -417,6 +418,24 @@ export function CRMDataProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // Bulk delete tasks via API
+  const bulkDeleteTasks = useCallback(async (ids: string[]) => {
+    if (ids.length === 0) return;
+    try {
+      const response = await fetch("/api/tasks/bulk-delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        setTasks((prev) => prev.filter((t) => !ids.includes(t.id)));
+      }
+    } catch (error) {
+      console.error("Error bulk deleting tasks:", error);
+    }
+  }, []);
+
   const addProjects = useCallback((newProjects: Project[]) => {
     setProjects((prev) => [...prev, ...newProjects]);
   }, []);
@@ -530,6 +549,7 @@ export function CRMDataProvider({ children }: { children: React.ReactNode }) {
         addTask,
         updateTask,
         deleteTask,
+        bulkDeleteTasks,
         addProjects,
         addInvoices,
         addImportHistory,

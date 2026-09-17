@@ -52,9 +52,10 @@ export default function ClientDetailPage() {
     "client" | "login" | "payment"
   >("client");
 
-  const canEditCore = hasRole("FOUNDER", "ADMIN");
-  const canEditPayment = hasRole("FOUNDER", "ADMIN");
-  const canEdit = hasRole("FOUNDER", "ADMIN", "SALES_PERSON");
+  // The org owner (SERENE_OWNER / FOUNDER) can edit every section of a client.
+  const canEditCore = hasRole("SERENE_OWNER", "FOUNDER", "ADMIN");
+  const canEditPayment = hasRole("SERENE_OWNER", "FOUNDER", "ADMIN");
+  const canEdit = hasRole("SERENE_OWNER", "FOUNDER", "ADMIN", "SALES_PERSON");
 
   const [form, setForm] = useState({
     name: "",
@@ -69,6 +70,8 @@ export default function ClientDetailPage() {
     service: "",
     totalAmount: "",
     amountPaid: "",
+    expenses: "",
+    commission: "",
     paymentStatus: "pending" as PaymentStatus,
     dueDate: "",
     notes: "",
@@ -107,6 +110,8 @@ export default function ClientDetailPage() {
       service: client.service,
       totalAmount: String(client.totalAmount),
       amountPaid: String(client.amountPaid),
+      expenses: String(client.expenses ?? 0),
+      commission: String(client.commission ?? 0),
       paymentStatus: client.paymentStatus,
       dueDate: client.dueDate,
       notes: client.notes,
@@ -140,6 +145,8 @@ export default function ClientDetailPage() {
       totalAmount: total,
       amountPaid: paid,
       balanceDue: total - paid,
+      expenses: Number(form.expenses) || 0,
+      commission: Number(form.commission) || 0,
       paymentStatus: form.paymentStatus,
       dueDate: form.dueDate.trim(),
       notes: form.notes.trim(),
@@ -402,6 +409,46 @@ export default function ClientDetailPage() {
                     ₹{client.balanceDue.toLocaleString("en-IN")}
                   </span>
                 </div>
+                {!!client.expenses && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-[12px] text-muted-foreground">
+                      Expenses / Cost
+                    </span>
+                    <span className="text-[14px] font-semibold text-rose-600">
+                      ₹{client.expenses.toLocaleString("en-IN")}
+                    </span>
+                  </div>
+                )}
+                {!!client.commission && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-[12px] text-muted-foreground">
+                      Commission / Payout
+                    </span>
+                    <span className="text-[14px] font-semibold text-purple-600">
+                      ₹{client.commission.toLocaleString("en-IN")}
+                    </span>
+                  </div>
+                )}
+                {((client.commission || 0) + (client.expenses || 0)) > 0 && (
+                  <div className="flex items-center justify-between border-t border-border pt-3">
+                    <span className="text-[12px] font-medium text-muted-foreground">
+                      Net Profit (this client)
+                    </span>
+                    <span
+                      className={`text-[15px] font-bold ${
+                        client.amountPaid - (client.commission || 0) - (client.expenses || 0) >= 0
+                          ? "text-emerald-600"
+                          : "text-red-600"
+                      }`}
+                    >
+                      ₹{(
+                        client.amountPaid -
+                        (client.commission || 0) -
+                        (client.expenses || 0)
+                      ).toLocaleString("en-IN")}
+                    </span>
+                  </div>
+                )}
                 <div className="flex items-center justify-between">
                   <span className="text-[12px] text-muted-foreground">
                     Status
@@ -665,18 +712,44 @@ export default function ClientDetailPage() {
                     />
                   </div>
                 </div>
-                <div className="space-y-1.5">
-                  <Label>Balance</Label>
-                  <Input
-                    value={`₹${(
-                      (Number(form.totalAmount) || 0) -
-                      (Number(form.amountPaid) || 0)
-                    ).toLocaleString("en-IN")}`}
-                    readOnly
-                    className="h-9 text-[13px] bg-muted"
-                  />
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label>Balance</Label>
+                    <Input
+                      value={`₹${(
+                        (Number(form.totalAmount) || 0) -
+                        (Number(form.amountPaid) || 0)
+                      ).toLocaleString("en-IN")}`}
+                      readOnly
+                      className="h-9 text-[13px] bg-muted"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Commission / Payout (₹)</Label>
+                    <Input
+                      type="number"
+                      value={form.commission}
+                      onChange={(e) =>
+                        setForm({ ...form, commission: e.target.value })
+                      }
+                      placeholder="e.g. 5000"
+                      className="h-9 text-[13px]"
+                    />
+                  </div>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label>Client Expenses / Cost (₹)</Label>
+                    <Input
+                      type="number"
+                      value={form.expenses}
+                      onChange={(e) =>
+                        setForm({ ...form, expenses: e.target.value })
+                      }
+                      placeholder="e.g. 5000"
+                      className="h-9 text-[13px]"
+                    />
+                  </div>
                   <div className="space-y-1.5">
                     <Label>Payment Status</Label>
                     <select

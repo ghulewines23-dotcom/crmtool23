@@ -170,6 +170,7 @@ export interface Client {
   amountPaid: number;
   balanceDue: number;
   expenses?: number;
+  commission?: number;
   paymentStatus: PaymentStatus;
   dueDate: string;
   notes: string;

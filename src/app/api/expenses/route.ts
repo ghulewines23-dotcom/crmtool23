@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
     const newExpense = await Expense.create({
       organizationId: auth.user.organizationId,
       title: title.trim(),
-      category: category || "MISC",
+      category: category || "OFFICE",
       amount: Number(amount),
       date: date ? new Date(date) : new Date(),
       notes: (notes || "").trim(),

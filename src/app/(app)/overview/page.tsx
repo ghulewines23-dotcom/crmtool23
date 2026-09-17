@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
@@ -28,16 +28,37 @@ import {
   Receipt,
   Tag,
   ShieldAlert,
+  BarChart3,
 } from "lucide-react";
+import { CustomSelect } from "@/components/ui/custom-select";
 import { cn } from "@/lib/utils";
 
 interface ExpenseItem {
   id: string;
   title: string;
-  category: "SALARY" | "MARKETING" | "SOFTWARE" | "OFFICE" | "MISC";
+  category: "SALARY" | "MARKETING" | "SOFTWARE" | "OFFICE" | "COMMISSION" | "CLIENT_COST";
   amount: number;
   date: string;
   notes?: string;
+}
+
+const EXPENSE_CATEGORIES: ExpenseItem["category"][] = [
+  "SALARY",
+  "MARKETING",
+  "SOFTWARE",
+  "OFFICE",
+  "COMMISSION",
+  "CLIENT_COST",
+];
+
+interface MonthlyPoint {
+  key: string;
+  label: string;
+  month: number;
+  year: number;
+  revenue: number;
+  expenses: number;
+  profit: number;
 }
 
 interface OverviewData {
@@ -49,6 +70,9 @@ interface OverviewData {
   totalWonLeads: number;
   activeTeamCount: number;
   expenseByCategory: Record<string, number>;
+  monthly: MonthlyPoint[];
+  /** Last 30 days, oldest → newest. Used by the Today / Last 7 / 30 Days filters. */
+  daily?: MonthlyPoint[];
   expenses: ExpenseItem[];
 }
 
@@ -67,9 +91,13 @@ function getCategoryBadge(category: string) {
     case "SOFTWARE":
       return <span className="inline-flex items-center gap-1 text-[11px] font-medium bg-cyan-50 text-cyan-700 px-2 py-0.5 rounded border border-cyan-200"><Laptop className="h-3 w-3" /> Software</span>;
     case "OFFICE":
-      return <span className="inline-flex items-center gap-1 text-[11px] font-medium bg-amber-50 text-amber-700 px-2 py-0.5 rounded border border-amber-200"><Building2 className="h-3 w-3" /> Office</span>;
+      return <span className="inline-flex items-center gap-1 text-[11px] font-medium bg-amber-50 text-amber-700 px-2 py-0.5 rounded border-amber-200"><Building2 className="h-3 w-3" /> Office</span>;
+    case "COMMISSION":
+      return <span className="inline-flex items-center gap-1 text-[11px] font-medium bg-pink-50 text-pink-700 px-2 py-0.5 rounded border-pink-200"><Briefcase className="h-3 w-3" /> Commission</span>;
+    case "CLIENT_COST":
+      return <span className="inline-flex items-center gap-1 text-[11px] font-medium bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded border-indigo-200"><Receipt className="h-3 w-3" /> Client Cost</span>;
     default:
-      return <span className="inline-flex items-center gap-1 text-[11px] font-medium bg-slate-50 text-slate-700 px-2 py-0.5 rounded border border-slate-200"><Receipt className="h-3 w-3" /> Misc</span>;
+      return <span className="inline-flex items-center gap-1 text-[11px] font-medium bg-slate-50 text-slate-700 px-2 py-0.5 rounded border border-slate-200"><Receipt className="h-3 w-3" /> Other</span>;
   }
 }
 
@@ -84,11 +112,15 @@ export default function OverviewPage() {
   const [addExpenseOpen, setAddExpenseOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  // Month range filter for the chart: "1" | "2" | "3" | "6" | "12"
+  const [monthFilter, setMonthFilter] = useState<string>("1");
+  // Which month column is being hovered (for the tooltip)
+  const [hoveredMonth, setHoveredMonth] = useState<string | null>(null);
 
   const [expenseForm, setExpenseForm] = useState({
     title: "",
     amount: "",
-    category: "MISC" as ExpenseItem["category"],
+    category: "COMMISSION" as ExpenseItem["category"],
     date: new Date().toISOString().split("T")[0],
     notes: "",
   });
@@ -133,7 +165,7 @@ export default function OverviewPage() {
       });
       const resData = await res.json();
       if (resData.success) {
-        setExpenseForm({ title: "", amount: "", category: "MISC", date: new Date().toISOString().split("T")[0], notes: "" });
+        setExpenseForm({ title: "", amount: "", category: "COMMISSION", date: new Date().toISOString().split("T")[0], notes: "" });
         setAddExpenseOpen(false);
         await fetchOverview();
       }
@@ -182,6 +214,54 @@ export default function OverviewPage() {
   const totalExpenses = data?.totalExpenses || 0;
   const netProfit = data?.netProfit || 0;
   const isProfitable = netProfit >= 0;
+  const commissionTotal = data?.expenseByCategory?.COMMISSION || 0;
+
+  // ── Monthly chart data ──
+  // The API returns the last 12 months (oldest → newest). Fixed range filter:
+  // "1" = this month, "2" = last month, "3" / "6" / "12" = last N months.
+  const allMonths: MonthlyPoint[] = data?.monthly || data?.daily || [];
+  const rangeToCount: Record<string, number> = {
+    "1": 1,
+    "2": 2,
+    "3": 3,
+    "6": 6,
+    "12": 12,
+    "7": 7,
+    "30": 30,
+  };
+  const rangeCount = rangeToCount[monthFilter] ?? 1;
+  // Use daily buckets for short windows (Today / Last 7 Days / Last 30 Days)
+  // and fall back to monthly buckets when the API doesn't return daily data.
+  const isDailyRange = monthFilter === "1" || monthFilter === "7" || monthFilter === "30";
+  const dailyPoints: MonthlyPoint[] = data?.daily || [];
+  const useDaily = isDailyRange && dailyPoints.length > 0;
+  const chartPoints = useDaily
+    ? dailyPoints.slice(-rangeCount)
+    : allMonths.slice(-rangeCount);
+
+  const monthOptions = [
+    { value: "1", label: "Today" },
+    { value: "7", label: "Last 7 Days" },
+    { value: "30", label: "Last 30 Days" },
+    { value: "2", label: "Last Month" },
+    { value: "3", label: "Last 3 Months" },
+    { value: "6", label: "Last 6 Months" },
+    { value: "12", label: "Last 12 Months" },
+  ];
+
+  const chartTotal = chartPoints.reduce(
+    (acc, m) => {
+      acc.revenue += m.revenue;
+      acc.expenses += m.expenses;
+      return acc;
+    },
+    { revenue: 0, expenses: 0 }
+  );
+  const chartProfit = chartTotal.revenue - chartTotal.expenses;
+  const maxValue = Math.max(
+    1,
+    ...chartPoints.map((m) => Math.max(m.revenue, m.expenses))
+  );
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
@@ -231,6 +311,7 @@ export default function OverviewPage() {
           </p>
           <p className="mt-1 text-[11px] text-muted-foreground">
             {data?.expenses.length || 0} logged expense items
+            {commissionTotal > 0 ? ` + ${formatCurrency(commissionTotal)} commission` : ""}
           </p>
         </div>
 
@@ -252,21 +333,178 @@ export default function OverviewPage() {
           </div>
         </div>
 
-        {/* Avg Deal Size */}
-        <div className="rounded-xl border border-border bg-white p-4 shadow-sm">
+        {/* Commission Paid */}
+        <div className="rounded-xl border-border bg-white p-4 shadow-sm">
           <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-[12px] font-medium uppercase tracking-wide">Avg Deal Value</span>
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+            <span className="text-[12px] font-medium uppercase tracking-wide">Commission Paid</span>
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-pink-50 text-pink-600">
               <Briefcase className="h-4 w-4" />
             </div>
           </div>
           <p className="mt-3 text-2xl font-bold tracking-tight text-foreground">
-            {formatCurrency(data?.avgDealValue || 0)}
+            {formatCurrency(commissionTotal)}
           </p>
           <p className="mt-1 text-[11px] text-muted-foreground">
-            Across active sales team ({data?.activeTeamCount || 0} members)
+            Sales commission on clients
           </p>
         </div>
+
+      </div>
+
+      {/* Monthly Revenue / Profit / Expenses Chart */}
+      <div className="rounded-xl border-border bg-white p-4 sm:p-5 shadow-sm">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
+              <BarChart3 className="h-4 w-4" />
+            </div>
+            <div>
+              <h3 className="text-[14px] font-semibold text-foreground leading-tight">Monthly Performance</h3>
+              <p className="text-[11px] text-muted-foreground">
+                {monthOptions.find((o) => o.value === monthFilter)?.label ?? "Today"}
+              </p>
+            </div>
+          </div>
+
+          {/* Range filter — sits on the section header, applies to the chart below */}
+          <CustomSelect
+            options={monthOptions}
+            value={monthFilter}
+            onChange={setMonthFilter}
+            placeholder="Today"
+            className="w-full sm:w-40"
+            size="sm"
+          />
+        </div>
+
+        <div className="flex items-center gap-3 text-[11px] font-medium mb-3">
+          <span className="flex items-center gap-1.5 text-muted-foreground">
+            <span className="h-2 w-2 rounded-full bg-emerald-500" /> Revenue
+          </span>
+          <span className="flex items-center gap-1.5 text-muted-foreground">
+            <span className="h-2 w-2 rounded-full bg-rose-400" /> Expenses
+          </span>
+          <span className="flex items-center gap-1.5 text-muted-foreground">
+            <span className="h-2 w-2 rounded-full bg-indigo-500" /> Profit
+          </span>
+        </div>
+
+        {/* Compact summary strip */}
+        <div className="grid grid-cols-3 gap-2 mb-4">
+          <div className="rounded-lg bg-emerald-50/70 px-3 py-2">
+            <p className="text-[10px] font-medium text-emerald-700/80 uppercase tracking-wide">Revenue</p>
+            <p className="text-[15px] font-bold text-emerald-700 leading-tight">{formatCurrency(chartTotal.revenue)}</p>
+          </div>
+          <div className="rounded-lg bg-rose-50/70 px-3 py-2">
+            <p className="text-[10px] font-medium text-rose-700/80 uppercase tracking-wide">Expenses</p>
+            <p className="text-[15px] font-bold text-rose-700 leading-tight">{formatCurrency(chartTotal.expenses)}</p>
+          </div>
+          <div className={cn("rounded-lg px-3 py-2", chartProfit >= 0 ? "bg-indigo-50/70" : "bg-rose-50/70")}>
+            <p className={cn("text-[10px] font-medium uppercase tracking-wide", chartProfit >= 0 ? "text-indigo-700/80" : "text-rose-700/80")}>Profit</p>
+            <p className={cn("text-[15px] font-bold leading-tight", chartProfit >= 0 ? "text-indigo-700" : "text-rose-700")}>{formatCurrency(chartProfit)}</p>
+          </div>
+        </div>
+
+        {/* Bars */}
+        {chartPoints.every((m) => m.revenue === 0 && m.expenses === 0) ? (
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <BarChart3 className="h-8 w-8 text-muted-foreground/40 mb-2" />
+            <p className="text-[13px] text-muted-foreground">
+              No data for this period yet.
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto pt-14">
+            <div className="flex items-end justify-around gap-2 sm:gap-4 min-w-[320px]">
+              {chartPoints.map((m) => {
+                const revH = Math.round((m.revenue / maxValue) * 100);
+                const expH = Math.round((m.expenses / maxValue) * 100);
+                const profH = Math.round((Math.max(m.profit, 0) / maxValue) * 100);
+                const isHovered = hoveredMonth === m.key;
+                return (
+                  <div
+                    key={m.key}
+                    className="group relative flex-1 min-w-[68px] flex-col cursor-pointer"
+                    onMouseEnter={() => setHoveredMonth(m.key)}
+                    onMouseLeave={() => setHoveredMonth(null)}
+                  >
+                    {/* Hover tooltip — shows the full date + values */}
+                    {isHovered && (
+                      <div className="pointer-events-none absolute -top-1 left-1/2 z-20 -translate-x-1/2 -translate-y-full">
+                        <div className="min-w-[132px] rounded-lg bg-slate-900 px-3 py-2 shadow-xl">
+                          <p className="text-[11px] font-semibold text-white leading-none mb-1.5">
+                            {m.label} {m.year}
+                          </p>
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="flex items-center gap-1.5 text-[10px] text-slate-300">
+                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Revenue
+                              </span>
+                              <span className="text-[10px] font-semibold text-white">{formatCurrency(m.revenue)}</span>
+                            </div>
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="flex items-center gap-1.5 text-[10px] text-slate-300">
+                                <span className="h-1.5 w-1.5 rounded-full bg-rose-400" /> Expenses
+                              </span>
+                              <span className="text-[10px] font-semibold text-white">{formatCurrency(m.expenses)}</span>
+                            </div>
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="flex items-center gap-1.5 text-[10px] text-slate-300">
+                                <span className="h-1.5 w-1.5 rounded-full bg-indigo-400" /> Profit
+                              </span>
+                              <span className={cn("text-[10px] font-semibold", m.profit >= 0 ? "text-white" : "text-rose-300")}>
+                                {formatCurrency(m.profit)}
+                              </span>
+                            </div>
+                          </div>
+                          {/* little arrow */}
+                          <div className="absolute left-1/2 -bottom-1 h-2 w-2 -translate-x-1/2 rotate-45 bg-slate-900" />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Bars row — fixed height, aligned to bottom */}
+                    <div className="flex items-end justify-center gap-1.5 h-40 pt-4">
+                      <div
+                        className={cn(
+                          "w-4 rounded-t-md bg-emerald-500 transition-all",
+                          isHovered ? "bg-emerald-600" : ""
+                        )}
+                        style={{ height: `${Math.max(revH, m.revenue > 0 ? 3 : 0)}%` }}
+                      />
+                      <div
+                        className={cn(
+                          "w-4 rounded-t-md bg-rose-400 transition-all",
+                          isHovered ? "bg-rose-500" : ""
+                        )}
+                        style={{ height: `${Math.max(expH, m.expenses > 0 ? 3 : 0)}%` }}
+                      />
+                      <div
+                        className={cn(
+                          "w-4 rounded-t-md bg-indigo-500 transition-all",
+                          isHovered ? "bg-indigo-600" : ""
+                        )}
+                        style={{ height: `${Math.max(profH, m.profit > 0 ? 3 : 0)}%` }}
+                      />
+                    </div>
+
+                    {/* Baseline tick + date label */}
+                    <div className={cn("border-t transition-colors", isHovered ? "border-slate-400" : "border-slate-200")} />
+                    <div className="pt-2 text-center">
+                      <p className={cn("text-[11px] font-semibold leading-none transition-colors", isHovered ? "text-slate-900" : "text-foreground")}>
+                        {m.label}
+                      </p>
+                      <p className="text-[9px] text-muted-foreground leading-none mt-0.5">
+                        {String(m.year)}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Expense Category Breakdown Bars */}
@@ -275,11 +513,12 @@ export default function OverviewPage() {
           <PieChart className="h-4 w-4 text-muted-foreground" />
           Expense Distribution by Category
         </h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
-          {Object.entries(data?.expenseByCategory || {}).map(([cat, amount]) => {
-            const pct = totalExpenses > 0 ? ((amount / totalExpenses) * 100).toFixed(0) : 0;
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
+          {EXPENSE_CATEGORIES.map((cat) => {
+            const amount = data?.expenseByCategory?.[cat] || 0;
+            const pct = totalExpenses > 0 ? Math.round((amount / totalExpenses) * 100) : 0;
             return (
-              <div key={cat} className="rounded-lg border border-border/80 bg-muted/20 p-3 space-y-1.5">
+              <div key={cat} className="rounded-lg border-border/80 bg-muted/20 p-3 space-y-1.5">
                 <div className="flex items-center justify-between">
                   {getCategoryBadge(cat)}
                   <span className="text-[11px] font-medium text-muted-foreground">{pct}%</span>
@@ -398,7 +637,8 @@ export default function OverviewPage() {
                   <option value="MARKETING">Marketing / Ads</option>
                   <option value="SOFTWARE">Software / Tools</option>
                   <option value="OFFICE">Office / Rent</option>
-                  <option value="MISC">Misc</option>
+                  <option value="COMMISSION">Commission</option>
+                  <option value="CLIENT_COST">Client Project Cost</option>
                 </select>
               </div>
             </div>

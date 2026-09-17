@@ -3,7 +3,7 @@ import mongoose, { Schema, Document, Model } from "mongoose";
 export interface IExpense extends Document {
   organizationId: string;
   title: string;
-  category: "SALARY" | "MARKETING" | "SOFTWARE" | "OFFICE" | "MISC";
+  category: "SALARY" | "MARKETING" | "SOFTWARE" | "OFFICE" | "COMMISSION" | "CLIENT_COST";
   amount: number;
   date: Date;
   notes?: string;
@@ -18,8 +18,8 @@ const ExpenseSchema: Schema<IExpense> = new Schema(
     title: { type: String, required: true },
     category: {
       type: String,
-      enum: ["SALARY", "MARKETING", "SOFTWARE", "OFFICE", "MISC"],
-      default: "MISC",
+      enum: ["SALARY", "MARKETING", "SOFTWARE", "OFFICE", "COMMISSION", "CLIENT_COST"],
+      default: "COMMISSION",
     },
     amount: { type: Number, required: true },
     date: { type: Date, default: Date.now },

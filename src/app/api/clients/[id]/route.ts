@@ -68,6 +68,7 @@ export async function PUT(
         amountPaid: paid,
         balanceDue: total - paid,
         ...(body.expenses !== undefined && { expenses: Number(body.expenses) }),
+        ...(body.commission !== undefined && { commission: Number(body.commission) }),
         paymentStatus: body.paymentStatus,
         dueDate: body.dueDate,
         notes: body.notes,

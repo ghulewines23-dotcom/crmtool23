@@ -41,6 +41,7 @@ function emptyForm() {
     totalAmount: "",
     amountPaid: "",
     expenses: "",
+    commission: "",
     paymentStatus: "pending" as PaymentStatus,
     dueDate: "",
     notes: "",
@@ -89,6 +90,7 @@ export default function ClientsPage() {
       amountPaid: paid,
       balanceDue: total - paid,
       expenses: Number(form.expenses) || 0,
+      commission: Number(form.commission) || 0,
       paymentStatus: form.paymentStatus,
       dueDate: form.dueDate.trim(),
       notes: form.notes.trim(),
@@ -470,6 +472,18 @@ export default function ClientsPage() {
                       className="h-9 text-[13px]"
                     />
                   </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Commission / Payout (₹)</Label>
+                  <Input
+                    type="number"
+                    value={form.commission}
+                    onChange={(e) =>
+                      setForm({ ...form, commission: e.target.value })
+                    }
+                    placeholder="e.g. 5000 (Sales commission paid)"
+                    className="h-9 text-[13px]"
+                  />
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="space-y-1.5">
